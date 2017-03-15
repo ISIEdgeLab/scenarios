@@ -1,0 +1,39 @@
+  rtp_start:
+    # Config RTP traffic
+    - type: event
+      agent: GstreamerRTPAgent
+      method: setConfiguration
+      trigger: configOK
+      args:
+        flows: *rtp_flows
+    - type: trigger
+      triggers: [ {event: configOK} ]
+
+    # Config RTP Monitoring
+    - type: event
+      agent: GstreamerRTPAgentViz
+      method: setConfiguration
+      trigger: vizConfigOK
+      args:
+        # Change this if your RTP agents are logging to a different directory.
+        dir_to_check: "/tmp/magi_gstreamer_rtp/"
+    - type: trigger
+      triggers: [ {event: vizConfigOK} ]
+
+    # Start RTP Monitoring 
+    # See https://edgect.deterlab.net/wiki/VisualizationHowTo for details.
+    - type: event
+      agent: GstreamerRTPAgentViz
+      method: startReporting
+      args: {}
+
+    # Start RTP flows
+    - type: event
+      agent: GstreamerRTPAgent
+      method: startTraffic
+      trigger: trafficOK
+      args: {}   
+    
+    # Wait for OK on RTP flows
+    - type: trigger
+      triggers: [ {event: trafficOK} ]

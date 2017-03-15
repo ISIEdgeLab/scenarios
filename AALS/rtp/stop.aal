@@ -1,0 +1,13 @@
+  rtp_stop:
+    # Stop RTP flows
+    - type: event
+      agent: GstreamerRTPAgent
+      method: stopTraffic
+      args: {}   
+    
+    # Stop RTP Monitoring
+    # See https://edgect.deterlab.net/wiki/VisualizationHowTo for details.
+    - type: event
+      agent: GstreamerRTPAgentViz
+      method: stopReporting 
+      args: {}
