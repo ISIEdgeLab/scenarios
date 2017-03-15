@@ -1,0 +1,21 @@
+  iperf_start: 
+    # Config iPerf traffic
+    - type: event
+      agent: iPerf
+      method: setConfiguration
+      trigger: configOK
+      args:
+        flows: *iperf_flows
+    - type: trigger
+      triggers: [ {event: configOK} ]
+
+    # Start iPerf flows
+    - type: event
+      agent: iPerf
+      method: start_traffic
+      trigger: trafficOK
+      args: {}   
+    
+    # Wait for OK on RTP flows
+    - type: trigger
+      triggers: [ {event: trafficOK} ]

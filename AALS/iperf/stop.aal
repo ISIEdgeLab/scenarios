@@ -1,0 +1,7 @@
+  iperf_stop:
+    # Stop iPerf flows
+    - type: event
+      agent: iPerf
+      method: stop_traffic
+      args: {}
+
