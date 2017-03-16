@@ -1,0 +1,27 @@
+  http_start:
+    # Start HTTP Servers
+    - type: event
+      agent: HTTPServerAgent
+      method: startServer
+      trigger: serversStarted
+      args: {}
+
+    - type: trigger
+      triggers: [ {event: serversStarted} ]
+
+    # Configure HTTP Clients
+    - type: event
+      agent: HTTPClientAgent
+      method: setConfiguration
+      args:
+        servers: *http_servers
+        interval: *http_client_interval
+        sizes: *http_client_sizes
+        useSocks: *http_client_use_socks
+
+    # Start HTTP Clients
+    - type: event
+      agent: HTTPClientAgent
+      method: startClient
+      args: {}
+

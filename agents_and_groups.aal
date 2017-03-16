@@ -1,0 +1,81 @@
+groups:
+  rtp_group: *rtp_group
+  iperf_group: *iperf_group
+  click_group: *click_group
+  http_servers: *http_servers
+  http_clients: *http_clients
+
+## MODULE DIRECTORY ##
+# If you are using a different repository for MAGI agents, 
+# copy this file to your overrides directory 
+# (default for this is ~/.edgect_scenarios/overrides)
+# and change the following path.
+# To modify the path for an individual module, modify the 'path:' setting for that module.
+top_dir: &agent_dir /proj/edgect/magi/modules
+
+agents:
+######################
+##### MONITORING #####
+######################
+  GstreamerRTPAgentViz:
+    group: rtp_group
+    path: !!python/object/apply:string.join [[*agent_dir, "gstreamer/GstreamerRTPAgentViz/"], /]
+    execargs:
+      dir_to_check: "/tmp/magi_gstreamer_rtp/"
+    
+######################
+##### IMPAIRMENTS ####
+######################
+
+### Click ############
+  Click:
+    group: click_group
+    path: !!python/object/apply:string.join [[*agent_dir, "clickControl"], /]
+    execargs: {}
+
+######################
+##### GENERATORS #####
+######################
+
+### Web traffic ######
+  HTTPServerAgent:
+    group: http_servers
+    path: !!python/object/apply:string.join [[*agent_dir, "apache"], /]
+    execargs: {}
+
+  HTTPClientAgent:
+    group: http_clients
+    path: !!python/object/apply:string.join [[*agent_dir, "curl_client"], /]
+    execargs: {}
+
+### RTP traffic ######
+  GstreamerRTPAgent:
+    group: rtp_group
+    path: !!python/object/apply:string.join [[*agent_dir, "gstreamer/RTPGenerator"], /]
+    execargs:
+      flows: [{}]
+
+### iPerf traffic ####
+  iPerf:
+    group: iperf_group
+    path: !!python/object/apply:string.join [[*agent_dir, "iperf"], /]
+    execargs: 
+      flows: [{}]
+
+#/proj/edgect/magi/modules/apache/apache.idl
+#/proj/edgect/magi/modules/clickControl/clickControl.idl
+#/proj/edgect/magi/modules/curl_client/curl_client.idl
+#/proj/edgect/magi/modules/data_aggregation_agent/data_aggregation_agent.idl
+#/proj/edgect/magi/modules/http_client/http_client.idl
+#/proj/edgect/magi/modules/iperf/iperf_agent.idl
+#/proj/edgect/magi/modules/ipsec/ipsec.idl
+#/proj/edgect/magi/modules/iron/iron_agent.idl
+#/proj/edgect/magi/modules/mgen/mgen_agent.idl
+#/proj/edgect/magi/modules/nodeStats/nodeStats.idl
+#/proj/edgect/magi/modules/pktcounters/pktCountersAgent.idl
+#/proj/edgect/magi/modules/pycurl_client/pycurl_client.idl
+#/proj/edgect/magi/modules/route_agent/route_agent.idl
+#/proj/edgect/magi/modules/runproc/runproc.idl
+#/proj/edgect/magi/modules/gstreamer/RTPGenerator/GstreamerRTPAgent.idl
+#/proj/edgect/magi/modules/gstreamer/GstreamerRTPAgentViz/GstreamerRTPAgentViz.idl
+#/proj/edgect/magi/modules/gstreamer/RTSPGenerator/gstreamer_rtsp_agent.idl

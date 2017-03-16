@@ -1,0 +1,18 @@
+  http_stop:
+
+    # Start HTTP Clients
+    - type: event
+      agent: HTTPClientAgent
+      method: stopClient
+      trigger: clientsStopped
+      args: {}
+
+    - type: trigger
+      triggers: [ {event: clientsStopped} ]
+
+    # Stop HTTP Servers
+    - type: event
+      agent: HTTPServerAgent
+      method: stopServer
+      args: {}
+
