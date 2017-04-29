@@ -1,0 +1,8 @@
+  tcpdump1_start:
+    - type: event
+      agent: tcpdump1
+      method: startCollection
+      args:
+        expression: *tcpdump1_expression
+        destination: *tcpdump1_destination
+

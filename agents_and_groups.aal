@@ -1,9 +1,13 @@
 groups:
   rtp_group: *rtp_group
   iperf_group: *iperf_group
+  mgen_group: *mgen_group
   click_group: *click_group
   http_servers: *http_servers
   http_clients: *http_clients
+  http_aggregation_node: *http_aggregation_node
+  tcpdump1_group: *tcpdump1_group
+  tcpdump2_group: *tcpdump2_group
 
 ## MODULE DIRECTORY ##
 # If you are using a different repository for MAGI agents, 
@@ -17,11 +21,32 @@ agents:
 ######################
 ##### MONITORING #####
 ######################
+  tcpdump1:
+    group: tcpdump1_group
+    path: !!python/object/apply:string.join [[*agent_dir, "tcpdump"], /]
+    execargs: {}
+
+  tcpdump2:
+    group: tcpdump2_group
+    path: !!python/object/apply:string.join [[*agent_dir, "tcpdump"], /]
+    execargs: {}  
+    
   GstreamerRTPAgentViz:
     group: rtp_group
     path: !!python/object/apply:string.join [[*agent_dir, "gstreamer/GstreamerRTPAgentViz/"], /]
     execargs:
       dir_to_check: "/tmp/magi_gstreamer_rtp/"
+
+  HTTPAggregationAgent:
+    group: http_aggregation_node
+    path: !!python/object/apply:string.join [[*agent_dir, "data_aggregation_agent"], /]
+    execargs:
+      lag: 10.0
+      agent_key: http_client_progress
+      data_key: dl_interval
+      node_key: host
+      reduce_method: 'sum(L)/len(L)'
+      enclaves: [{}]
     
 ######################
 ##### IMPAIRMENTS ####
@@ -61,6 +86,15 @@ agents:
     path: !!python/object/apply:string.join [[*agent_dir, "iperf"], /]
     execargs: 
       flows: [{}]
+
+### MGEN traffic ###
+  mgen:
+    group: mgen_group
+    path: !!python/object/apply:string.join [[*agent_dir, "mgen"], /] 
+    execargs: {
+      config_dir: /tmp,
+      log: /tmp/mgen.log
+    }
 
 #/proj/edgect/magi/modules/apache/apache.idl
 #/proj/edgect/magi/modules/clickControl/clickControl.idl

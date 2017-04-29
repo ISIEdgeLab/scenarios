@@ -1,4 +1,4 @@
-  http_start:
+   http_start:
     # Start HTTP Servers
     - type: event
       agent: HTTPServerAgent

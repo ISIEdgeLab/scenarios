@@ -1,0 +1,23 @@
+  mgen_start:
+    # Config MGEN traffic
+    - type: event
+      agent: mgen
+      method: setConfiguration
+      trigger: configOK
+      args:
+        config_dir: *mgen_config_dir
+        log: *mgen_log
+
+    - type: trigger
+      triggers: [ {event: configOK} ]
+
+    # Start MGEN flows
+    - type: event
+      agent: mgen
+      method: start
+      trigger: trafficOK
+      args: {}   
+    
+    # Wait for OK on MGEN flows
+    - type: trigger
+      triggers: [ {event: trafficOK} ]

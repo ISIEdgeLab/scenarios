@@ -1,0 +1,19 @@
+  tcpdump1_stop:
+    # Stop tcpdump
+    - type: event
+      agent: tcpdump1
+      method: stopCollection
+      trigger: dumpStopped 
+      args: {}
+  
+    - type: trigger
+      triggers: [{event: dumpStopped}] 
+  
+    - type: event
+      agent: tcpdump1
+      trigger: filesCopied
+      method: archiveDump
+      args: { archivepath: *tcpdump1_archivepath }
+ 
+    - type: trigger
+      triggers: [ {event: filesCopied} ] 

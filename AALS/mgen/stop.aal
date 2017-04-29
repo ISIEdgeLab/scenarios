@@ -1,0 +1,7 @@
+  mgen_stop:
+    # Stop MGEN flows
+    - type: event
+      agent: mgen
+      method: stop
+      args: {}   
+    
