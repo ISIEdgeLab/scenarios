@@ -1,0 +1,60 @@
+# Nodes & Groups
+#traffic_nodes: &traffic_nodes [traf11, traf21, traf31, traf41, traf51, traf61]
+route_group: &route_group [vrouter, ct1, ct2, ct3, ct4, ct5, ct6, traf11, traf21, traf31, traf41, traf51, traf61]
+click_group: &click_group [vrouter]
+rtp_group:  &rtp_group [traf11, traf21, traf31, traf41, traf51, traf61]
+iperf_group: &iperf_group [vrouter]
+http_servers: &http_servers [vrouter]
+http_clients: &http_clients [vrouter]
+mgen_group: &mgen_group [vrouter]
+tcpdump1_group: &tcpdump1_group [vrouter]
+tcpdump2_group: &tcpdump2_group [vrouter]
+
+#############################
+#    Module Configuration   #
+#############################
+#---------------------------#
+#    Network                #
+#---------------------------#
+click_links: &click_links                     [ "link_12_10", "link_10_12", "link_1_13", "link_1_2", "link_1_7", "link_10_9", "link_11_9", "link_11_12", "link_12_11", "link_12_4", "link_12_14", "link_13_1", "link_13_3", "link_13_7", "link_14_12", "link_14_4", "link_14_7", "link_2_1", "link_2_7", "link_3_8", "link_3_13", "link_3_4", "link_4_3",  "link_14_12", "link_14_4","link_5_9", "link_6_9", "link_7_1", "link_7_8", "link_7_13", "link_7_2", "link_7_14", "link_8_3", "link_8_7", "link_9_11", "link_9_10", "link_9_5", "link_9_6" ]
+click_init_capacities: &click_init_capacities [ "5Mbps",      "5Mbps",      "10Mbps",    "10Mbps",   "10Mbps",   "10Mbps",    "10Mbps",    "10Mbps",     "10Mbps",     "10Mbps",    "10Mbps",     "10Mbps",    "10Mbps",    "10Mbps",    "10Mbps",     "10Mbps",    "5Mbps",     "10Mbps",   "10Mbps",   "10Mbps",   "10Mbps",    "10Mbps",   "10Mbps",    "10Mbps",    "10Mbps",    "10Mbps",   "10Mbps",   "10Mbps",   "10Mbps",   "10Mbps",    "10Mbps",   "5Mbps",     "10Mbps",   "10Mbps",   "10Mbps",    "10Mbps",    "10Mbps",   "10Mbps"   ]
+click_init_delays:     &click_init_delays     [ "50ms",       "0ms",        "0ms",       "0ms",      "0ms",      "0ms"   ,    "0ms",       "0ms",        "0ms",        "0ms",       "0ms",        "0ms",       "0ms",       "0ms",       "0ms",        "0ms",       "500ms",     "0ms",      "0ms",      "0ms",      "0ms",       "0ms",      "0ms",       "0ms",       "0ms",       "0ms",      "0ms",      "0ms",      "0ms",      "0ms",       "0ms",      "500ms",     "0ms",      "0ms",      "0ms",       "0ms",       "0ms",      "0ms"      ] 
+click_init_losses:     &click_init_losses     [ ".03",        ".03",        "0",         "0",        "0",        "0",         "0",         "0",          "0",          "0",         "0",          "0",         "0",         "0",         "0",          "0",         "0",         "0",        "0",        "0",        "0",         "0",        "0",         "0",         "0",         "0",        "0",        "0",        "0",        "0",         "0",        "0",         "0",        "0",        "0",         "0",         "0",        "0"        ]                                                                                  
+
+# Flap (1st flap, add more flaps by adding a number after 'flap' - e.g. 'click_flap1_path1'
+# Router will alternate every 'click_flap_rate' seconds.
+click_flap_rate: &click_flap_rate 5
+# Flaps alternate between two paths:
+click_flap_path1: &click_flap_path1 ["10.5.1.0/16", "router12", "router11", "router10"]
+click_flap_path2: &click_flap_path2 ["10.6.1.0/16", "router12", "router11", "router10"]
+
+#---------------------------#
+#    Traffic Generation     #
+#---------------------------#
+#    RTP                    
+rtp_flows: &rtp_flows
+  - client: "traf51"
+    server: "traf11"
+  - client: "traf51"
+    server: "traf21"
+  - client: "traf61"
+    server: "traf31"
+  - client: "traf61"
+    server: "traf41"
+rtp_client_args: &rtp_client_args '-f 30 -t 1000'
+rtp_server_args: &rtp_server_args '-f 30 -t 1000'
+#     For RTP Viz
+rtp_log_dir: &rtp_log_dir "/tmp/magi_gstreamer_rtp/"
+
+#    iPerf                  
+iperf_flows: &iperf_flows
+  - client: "traf51"
+    server: "traf11"
+  - client: "traf61"
+    server: "traf31"
+
+#    HTTP                           
+http_client_interval: &http_client_interval '5'
+http_client_sizes: &http_client_sizes '100000000'
+http_client_use_socks: &http_client_use_socks False
+
