@@ -1,0 +1,209 @@
+crypto_nodes: &crypto_nodes [crypto1, crypto2, crypto3, crypto4, crypto5, crypto6]
+traf_nodes: &traf_nodes [traf11, traf21, traf31, traf41, traf51, traf61]
+ct_nodes: &ct_nodes [ct1,ct2,ct3,ct4,ct5,ct6]
+servers: &servs [traf11, traf31, traf51]
+clients: &clins [traf21, traf41, traf61]
+gens: &gens [traf11, traf21, traf31, traf41, traf51, traf61]
+
+streamstarts:  [traffic]
+#streamstarts: [routing_viz]
+
+groups
+  rtp_gens: *gens
+  iperf_gens: *gens
+  web_clients: *clients
+  web_servers: *servers
+  # Change route_nodes to include crypto boxes if using 6e-t1-w_crypto_nodes.ns
+  # route_group: [vrouter, *crypto_nodes, *traf_nodes, *ct_nodes]
+  #route_group: [vrouter] , *traf_nodes, *ct_nodes
+  route_group: [vrouter, traf11, traf21, traf31, traf41, traf51, traf61, ct1,ct2,ct3,ct4,ct5,ct6]
+  clicks: [vrouter]
+
+agents:
+  GstreamerRTPAgent:
+    group: generators
+    dock: GstreamerRTPAgent
+    path: /proj/edgect/magi/modules/gstreamer/RTPGenerator/
+    #path: /users/gbartlet/edgect/github/magi_modules/gstreamer/RTPGenerator/
+    execargs: []
+  GstreamerRTPAgentViz:
+    group: generators
+    dock: GstreamerRTPAgentViz
+    path: /proj/edgect/magi/modules/gstreamer/GstreamerRTPAgentViz/
+    #path: /users/gbartlet/edgect/github/magi_modules/gstreamer/GstreamerRTPAgentViz/
+    execargs:
+      dir_to_check: "/tmp/magi_gstreamer_rtp/" 
+  WebClients:
+    group: web_clients
+    dock: webclients
+    path: /share/magi/modules/http_client/http_client_v170.tar.gz
+    #path: /proj/edgect/magi/modules/pycurl_client/
+    execargs:
+      servers: web_servers
+      interval: "1"
+      sizes: "1073741824"
+  WebServers:
+     group: web_servers
+     dock: webservers
+     path: /share/magi/modules/apache/apache.tar.gz
+     exargs: []
+  iPerf:
+    group: generators
+    dock: iperf
+    path: /proj/edgect/magi/modules/iperf
+    execargs:
+      flows: [{"client":"traf11", "server":"traf21"}, {"client":"traf21", "server":"traf31"}, {"client":"traf31", "server":"traf41"}, {"client":"traf41", "server":"traf51"}, {"client":"traf51", "server":"traf61"}, {"client":"traf61", "server":"traf11"}, {"client":"traf21", "server":"traf11"}]
+  Clicks:
+    group: clicks
+    dock: clicks
+    path: /proj/edgect/magi/modules/clickControl/
+    execargs: []
+  # Below agents interfaces with viz topology tools.
+  routes_agent:
+    group: route_group
+    dock: route_groupDock
+    path: /proj/edgect/magi/modules/route_agent
+    execargs:
+      interval: 10
+      truncate: true
+      recordLevel: 0
+  nodestats_agent:
+    group: route_group
+    dock: route_groupStatsDock
+    path: /proj/edgect/magi/modules/nodeStats
+    execargs: 
+      interval: 5
+
+eventstreams:
+  traffic:
+    # Just be sure we're not in a bad state:
+    - type: event 
+      agent: GstreamerRTPAgent 
+      method: stopTraffic 
+      args: {} 
+    - type: event 
+      agent: Clicks 
+      method: stopRouteFlaps 
+      args: {}
+    # Reset all our link characteristics and Create a larger differential between our flapped links
+    - type: event
+      agent: Clicks
+      method: updateLinks
+      args:
+        links:      ["link_12_10", "link_10_12", "link_1_13", "link_1_2", "link_1_7", "link_10_9", "link_11_9", "link_11_12", "link_12_11", "link_12_4", "link_12_14", "link_13_1", "link_13_3", "link_13_7", "link_14_12", "link_14_4", "link_14_7", "link_2_1", "link_2_7", "link_3_8", "link_3_13", "link_3_4", "link_4_3", "link_4_12", "link_4_14", "link_5_9", "link_6_9", "link_7_1", "link_7_8", "link_7_13", "link_7_2", "link_7_14", "link_8_3", "link_8_7", "link_9_11", "link_9_10", "link_9_5", "link_9_6" ]
+        capacities: ["5Mbps",      "5Mbps",      "10Mbps",    "10Mbps",   "10Mbps",   "10Mbps",    "10Mbps",    "10Mbps",     "10Mbps",     "10Mbps",    "10Mbps",     "10Mbps",    "10Mbps",    "10Mbps",    "10Mbps",     "10Mbps",    "5Mbps",     "10Mbps",   "10Mbps",   "10Mbps",   "10Mbps",    "10Mbps",   "10Mbps",   "10Mbps",    "10Mbps",    "10Mbps",   "10Mbps",   "10Mbps",   "10Mbps",   "10Mbps",    "10Mbps",   "5Mbps",     "10Mbps",   "10Mbps",   "10Mbps",    "10Mbps",    "10Mbps",   "10Mbps"   ]
+        delays:     ["50ms",       "0ms",        "0ms",       "0ms",      "0ms",      "0ms"   ,    "0ms",       "0ms",        "0ms",        "0ms",       "0ms",        "0ms",       "0ms",       "0ms",       "0ms",        "0ms",       "500ms",     "0ms",      "0ms",      "0ms",      "0ms",       "0ms",      "0ms",      "0ms",       "0ms",       "0ms",      "0ms",      "0ms",      "0ms",      "0ms",       "0ms",      "500ms",     "0ms",      "0ms",      "0ms",       "0ms",       "0ms",      "0ms"      ]
+        losses:     [".01",        ".03",         "0",         "0",        "0",        "0",         "0",         "0",          "0",          "0",         "0",          "0",         "0",         "0",         "0",          "0",         "0",         "0",        "0",        "0",        "0",         "0",        "0",        "0",         "0",         "0",        "0",        "0",        "0",        "0",         "0",        "0",         "0",        "0",        "0",         "0",         "0",        "0",       ]
+      trigger: updateLinksOK
+    - type: trigger
+      triggers: [ {event: updateLinksOK} ]
+
+    # Update Click Viz
+    - type: event
+      agent: Clicks
+      method: updateVisualization
+      args: {}
+      trigger: clickVizOK
+    # Wait for clickViz
+    - type: trigger
+      triggers: [ {event: clickVizOK} ]
+    
+    # Set up node stats viz
+    - type: event
+      agent: nodestats_agent
+      method: startCollection
+      args: {}
+      trigger: nodeStatsVizOK
+    - type: trigger
+      triggers: [ {event: nodeStatsVizOK} ]
+
+    # Set up routing/topology viz
+    - type: event
+      agent: routes_agent
+      method: startCollection
+      args: {}
+      trigger: routeVizOK
+    - type: trigger
+      triggers: [ {event: routeVizOK} ]
+
+    # Configure our RTP Viz.
+    - type: event
+      agent: GstreamerRTPAgentViz
+      method: setConfiguration
+      trigger: vizConfigOK
+      args:
+        dir_to_check: "/tmp/magi_gstreamer_rtp/"
+    # Wait for VizConf
+    - type: trigger
+      triggers: [ {event: vizConfigOK}]
+
+    # Configure RTP agents.
+    - type: event
+      agent: GstreamerRTPAgent
+      method: setConfiguration
+      trigger: configOK
+      args:
+        flows: [{"client":"traf51", "server":"traf11"}, {"client":"traf51", "server":"traf21"}, {"client":"traf61", "server":"traf31"}, {"client":"traf61", "server":"traf41"}]
+        # Have all video flows run for entire experiment duration (and a little extra to be sure).
+        client_args: "-t 1000"
+        server_args: "-t 1000"
+    # Wait for Config OK
+    - type: trigger
+      triggers: [ {event: configOK} ]
+
+    # Start viz reporting
+    # See https://edgect.deterlab.net/wiki/VisualizationHowTo for details.
+    - type: event
+      agent: GstreamerRTPAgentViz
+      method: startReporting
+      args: {}
+
+    # Start RTP flows
+    - type: event
+      agent: GstreamerRTPAgent
+      method: startTraffic
+      trigger: trafficOK
+      args: {}
+    
+    # Wait for OK on RTP flows
+    - type: trigger
+      triggers: [ {event: trafficOK} ]
+
+    # Target flows have started, wait for 100s
+    - type: trigger
+      triggers: [ {timeout: 100000} ]
+
+    # Wait for on route flap and wait 100s
+    - type: trigger
+      triggers: [ {event: flapsOK}]
+    - type: trigger
+      triggers: [ {timeout: 100000} ]
+
+    - type: event
+      agent: routes_agent
+      method: stopCollection
+      trigger: routeVizStopOK
+      args: {}
+
+    - type: trigger
+      triggers: [ {event: routeVizStopOK}]
+
+    - type: event
+      agent: nodestats_agent
+      method: stopCollection
+      trigger: statVizStopOK
+      args: {}
+
+    - type: trigger
+      triggers: [ {event: statVizStopOK}]
+
+    # End experiment and restore state.
+    - type: event
+      agent: GstreamerRTPAgent
+      method: stopTraffic
+      args: {}
+
+    - type: event
+      agent: Clicks
+      method: stopRouteFlaps
+      args: {}
