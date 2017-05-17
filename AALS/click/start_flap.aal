@@ -1,0 +1,13 @@
+  click_start_flap:
+    # Just in case we have a flap, make sure it's stopped for the init.
+    - type: event
+      agent: ClickAgent
+      method: startRouteFlaps
+      trigger: flapsOK
+      args:
+        rate: *click_flap_rate
+        flaps: [*click_flap_path1, *click_flap_path2]
+
+    - type: trigger
+      triggers: [ {event: flapsOK} ]
+

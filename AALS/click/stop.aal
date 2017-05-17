@@ -1,0 +1,31 @@
+  click_stop:
+    # Just in case we have a flap, make sure it's stopped for the init.
+    - type: event
+      agent: ClickAgent
+      method: stopRouteFlaps
+      args: {}
+
+    # Set our network up for initial conditions
+    - type: event
+      agent: ClickAgent
+      method: updateLinks
+      trigger: clickInitOK
+      args:
+        links: *click_links
+        capacities: *click_init_capacities
+        delays: *click_init_delays
+        losses: *click_init_losses
+
+    - type: trigger
+      triggers: [ {event: clickInitOK} ]
+
+    # Update our network visulization
+    - type: event
+      agent: ClickAgent
+      method: updateVisualization
+      args: {}
+      trigger: clickVizOK
+ 
+    - type: trigger
+      triggers: [ {event: clickVizOK} ]
+
