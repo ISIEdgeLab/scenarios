@@ -1,11 +1,12 @@
 groups:
-  rtp_group: *rtp_group
-  iperf_group: *iperf_group
-  mgen_group: *mgen_group
   click_group: *click_group
   http_servers: *http_servers
   http_clients: *http_clients
-  http_aggregation_node: *http_aggregation_node
+  http_aggregation_node: [control]
+  iperf_group: *iperf_group
+  mgen_group: *mgen_group
+  route_group: *route_group
+  rtp_group: *rtp_group
   tcpdump1_group: *tcpdump1_group
   tcpdump2_group: *tcpdump2_group
 
@@ -30,12 +31,26 @@ agents:
     group: tcpdump2_group
     path: !!python/object/apply:string.join [[*agent_dir, "tcpdump"], /]
     execargs: {}  
-    
+  
+  NodeStatAgentViz:
+    group: route_group
+    path: !!python/object/apply:string.join [[*agent_dir, "nodeStats"], /]
+    execargs:
+      interval: 5
+
+  RouteAgentViz:
+    group: route_group
+    path: !!python/object/apply:string.join [[*agent_dir, "route_agent"], /]
+    execargs:
+      interval: 10
+      truncate: true
+      recordLevel: 0
+
   GstreamerRTPAgentViz:
     group: rtp_group
     path: !!python/object/apply:string.join [[*agent_dir, "gstreamer/GstreamerRTPAgentViz/"], /]
     execargs:
-      dir_to_check: "/tmp/magi_gstreamer_rtp/"
+      dir_to_check: *rtp_log_dir
 
   HTTPAggregationAgent:
     group: http_aggregation_node
@@ -53,7 +68,7 @@ agents:
 ######################
 
 ### Click ############
-  Click:
+  ClickAgent:
     group: click_group
     path: !!python/object/apply:string.join [[*agent_dir, "clickControl"], /]
     execargs: {}
@@ -92,8 +107,8 @@ agents:
     group: mgen_group
     path: !!python/object/apply:string.join [[*agent_dir, "mgen"], /] 
     execargs: {
-      config_dir: /tmp,
-      log: /tmp/mgen.log
+      config_dir: "/tmp",
+      log: "/tmp/mgen.log"
     }
 
 #/proj/edgect/magi/modules/apache/apache.idl

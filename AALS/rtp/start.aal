@@ -6,6 +6,8 @@
       trigger: configOK
       args:
         flows: *rtp_flows
+        client_args: *rtp_client_args
+        server_args: *rtp_server_args
     - type: trigger
       triggers: [ {event: configOK} ]
 

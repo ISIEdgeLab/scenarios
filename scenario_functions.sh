@@ -34,6 +34,7 @@ fi
 
 # Default magi orchestrator to use.
 MAGI=`which magi_orchestrator.py`
+#MAGI=/proj/edgect/magi/current/magi_orchestrator.py
 if [ x = x${MAGI} ]; then
 	echo "ERROR: No magi_orchestrator.py found. Is Magi installed?"
 	exit	
@@ -111,5 +112,5 @@ function magi_run {
 
 	echo $MAGI -c ${MAGI_CONTROL} -f ${SCENARIO_CONFIG} -f ${AGENTS_AND_GROUPS_AAL} -f $tmp_eventstream_file ${aals}
 	$MAGI -c ${MAGI_CONTROL} -f ${SCENARIO_CONFIG} -f ${AGENTS_AND_GROUPS_AAL} -f $tmp_eventstream_file ${aals}
-	rm $tmp_eventstream_file
+	#rm $tmp_eventstream_file
 }
