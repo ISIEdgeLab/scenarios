@@ -1,14 +1,15 @@
 source ../scenario_functions.sh
 
-MODULES="general_viz rtp iperf"
+# Available modules: general_viz rtp iperf
+MODULES="general_viz iperf"
 
 echo "Starting: ${MODULES}"
-magi_run 6e-t1-s1 "${MODULES}" start
+magi_run 12e-t2-s0 "${MODULES}" start
 
 echo "Sleeping"
 sleep 60
 
-magi_run 6e-t1-s1 "${MODULES}" stop
+magi_run 12e-t2-s0 "${MODULES}" stop
 
 
 
