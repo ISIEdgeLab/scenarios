@@ -1,0 +1,13 @@
+  targeted_loss_start: 
+    # Start targeted loss
+    - type: event
+      agent: ClickAgent
+      method: updateTargetedLoss
+      trigger: targetedLossOK
+      args:
+        <<: *targeted_loss_args_start
+        active: true
+    
+    # Wait for OK on configuration
+    - type: trigger
+      triggers: [ {event: targetedLossOK} ]

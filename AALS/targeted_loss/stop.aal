@@ -1,0 +1,14 @@
+
+  targeted_loss_stop: 
+    # Stop targeted loss by making the click node inactive.
+    - type: event
+      agent: ClickAgent
+      method: updateTargetedLoss
+      trigger: targetedLossOK
+      args:
+        <<: *targeted_loss_args_stop
+        active: false
+    
+    # Wait for OK on configuration
+    - type: trigger
+      triggers: [ {event: targetedLossOK} ]

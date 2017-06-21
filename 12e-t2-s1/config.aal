@@ -1,0 +1,72 @@
+# Nodes & Groups
+route_group: &route_group [vrouter, ct1, ct2, ct3, ct4, ct5, ct6, ct7, ct8, ct9, ct10, ct11, ct12, traf11, traf21, traf31, traf41, traf51, traf61, traf71, traf81, traf91, traf101, traf111, traf121 ]
+click_group: &click_group [vrouter]
+rtp_group:  &rtp_group [traf11, traf21, traf31, traf41, traf51, traf61, traf71, traf81, traf91, traf101, traf111, traf121 ]
+iperf_group: &iperf_group [traf11, traf21, traf31, traf41, traf51, traf61, traf71, traf81, traf91, traf101, traf111, traf121]
+http_servers: &http_servers [traf11, traf21, traf31, traf41, traf51, traf61, traf71, traf81, traf91, traf101, traf111, traf121]
+http_clients: &http_clients [traf11, traf21, traf31, traf41, traf51, traf61, traf71, traf81, traf91, traf101, traf111, traf121]
+mgen_group: &mgen_group [traf11, traf21, traf31, traf41, traf51, traf61, traf71, traf81, traf91, traf101, traf111, traf121]
+tcpdump1_group: &tcpdump1_group [ct1,ct3]
+tcpdump2_group: &tcpdump2_group [ct2,ct4]
+
+#############################
+#    Module Configuration   #
+#############################
+#---------------------------#
+#    Traffic Generation     #
+#---------------------------#
+#    RTP                    
+rtp_flows: &rtp_flows
+  - client: "traf11"
+    server: "traf111"
+  - client: "traf21"
+    server: "traf121"
+  - client: "traf41"
+    server: "traf61"
+  - client: "traf51"
+    server: "traf91"
+  - client: "traf61"
+    server: "traf101"
+  - client: "traf41"
+    server: "traf31"
+rtp_client_args: &rtp_client_args '-f 30 -t 1000'
+rtp_server_args: &rtp_server_args '-f 30 -t 1000'
+#     For RTP Viz
+rtp_log_dir: &rtp_log_dir "/tmp/magi_gstreamer_rtp/"
+
+#    iPerf                  
+iperf_flows: &iperf_flows
+  - client: "traf31"
+    server: "traf71"
+  - client: "traf61"
+    server: "traf101"
+  - client: "traf71"
+    server: "traf81"
+  - client: "traf121"
+    server: "traf91"
+
+#############################
+# Impairments               #
+#############################
+# --- Targeted Loss ---     #
+# Valid Arguments: 
+#   link: name of link to effect (in 12e-t1, this currently must be only "link_8_32"/"link_32_8")
+#   destination: CIDR of destintion network to target for loss.
+#   drop_prob: Probability that a packet will be dropped. Float from 0.0 to 1.0.
+#   prefix: 
+#   source: CIDR of source network to be targeted. 
+#   clear_drops: Remove current drops.
+#   burst: 
+targeted_loss_args_start: &targeted_loss_args_start { link: link_8_32, destination: 10.10.1.1, drop_prob: 0.10 }
+
+# All you really need here is the link(s). You can change configuration, but it won't matter as the link is made non-active.
+targeted_loss_args_stop: &targeted_loss_args_stop { link: link_8_32, destination: 0.0.0.0/0, drop_prob: 0.0}
+
+# --- Simple Packet Reordering ---     #
+# Valid Arguments: 
+#   link: 
+#   timeout:
+#   packets: 
+#   sampling_prob: 
+simple_reorder_args_start: &simple_reorder_args_start { link: link_6_23, timeout: 100 }
+simple_reorder_args_stop: &simple_reorder_args_stop { link: link_6_23, timeout: 0 }

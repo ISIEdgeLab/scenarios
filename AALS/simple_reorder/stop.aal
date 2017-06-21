@@ -1,0 +1,14 @@
+
+  simple_reorder_stop: 
+    # Stop simple reorder loss by making the click node inactive.
+    - type: event
+      agent: ClickAgent
+      method: updateSimpleReorder
+      trigger: reorderStopOK
+      args:
+        <<: *simple_reorder_args_stop
+        active: false
+    
+    # Wait for OK on configuration
+    - type: trigger
+      triggers: [ {event: reorderStopOK} ]
