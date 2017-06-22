@@ -2,7 +2,7 @@
 
 ### DEFAULTS ###
 # Topdir
-TOPDIR=${TOPDIR:-/users/gbartlet/edgect/github/scenarios}
+TOPDIR=/users/gbartlet/edgect/github/scenarios
 
 # The place to look for overrides if env SCENARIO_OVERRIDES is undefined.
 if [ x = x${SCENARIO_OVERRIDES} ]; then
