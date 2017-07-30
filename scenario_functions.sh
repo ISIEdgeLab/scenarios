@@ -2,7 +2,7 @@
 
 ### DEFAULTS ###
 # Topdir
-TOPDIR=/users/gbartlet/edgect/github/scenarios
+TOPDIR=/proj/edgect/scenarios
 
 # The place to look for overrides if env SCENARIO_OVERRIDES is undefined.
 if [ x = x${SCENARIO_OVERRIDES} ]; then
@@ -112,5 +112,5 @@ function magi_run {
 
 	echo $MAGI -c ${MAGI_CONTROL} -f ${SCENARIO_CONFIG} -f ${AGENTS_AND_GROUPS_AAL} -f $tmp_eventstream_file ${aals}
 	$MAGI -c ${MAGI_CONTROL} -f ${SCENARIO_CONFIG} -f ${AGENTS_AND_GROUPS_AAL} -f $tmp_eventstream_file ${aals}
-	#rm $tmp_eventstream_file
+	rm $tmp_eventstream_file
 }
