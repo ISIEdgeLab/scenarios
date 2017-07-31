@@ -1,0 +1,69 @@
+# Nodes & Groups
+route_group: &route_group [vrouter, ct1, ct2, traf11, traf21]
+click_group: &click_group [vrouter]
+rtp_group:  &rtp_group [traf11, traf21]
+iperf_group: &iperf_group [traf11, traf21]
+http_servers: &http_servers [traf11, traf21]
+http_clients: &http_clients [traf11, traf21]
+mgen_group: &mgen_group [traf11, traf21]
+tcpdump1_group: &tcpdump1_group [ct1,ct2]
+tcpdump2_group: &tcpdump2_group [ct1,ct2]
+
+#############################
+#    Data collection	    #
+#############################
+#---------------------------#
+#    Tcpdump                #
+#___________________________#
+tcpdump1_args_start: &tcpdump1_args_start {} 
+
+#############################
+#    Module Configuration   #
+#############################
+#---------------------------#
+#    Traffic Generation     #
+#---------------------------#
+#    RTP                    
+rtp_flows: &rtp_flows
+  - client: "traf11"
+    server: "traf21"
+  - client: "traf21"
+    server: "traf11"
+rtp_client_args: &rtp_client_args '-f 30 -t 1000'
+rtp_server_args: &rtp_server_args '-f 30 -t 1000'
+#     For RTP Viz
+rtp_log_dir: &rtp_log_dir "/tmp/magi_gstreamer_rtp/"
+
+#    iPerf                  
+iperf_flows: &iperf_flows
+  - client: "traf21"
+    server: "traf11"
+  - client: "traf11"
+    server: "traf21"
+
+#############################
+# Impairments               #
+#############################
+# --- Targeted Loss ---     #
+# Valid Arguments: 
+#   link: name of link to effect (in 12e-t1, this currently must be only "link_8_32"/"link_32_8")
+#   destination: CIDR of destintion network to target for loss.
+#   drop_prob: Probability that a packet will be dropped. Float from 0.0 to 1.0.
+#   prefix: 
+#   source: CIDR of source network to be targeted. 
+#   clear_drops: Remove current drops.
+#   burst: 
+targeted_loss_args_start: &targeted_loss_args_start { link: link_1_2, destination: 10.1.1.1, drop_prob: 0.10 }
+
+# All you really need here is the link(s). You can change configuration, but it won't matter as the link is made non-active.
+targeted_loss_args_stop: &targeted_loss_args_stop { link: link_1_2, destination: 0.0.0.0/0, drop_prob: 0.0 }
+
+# --- Simple Packet Reordering ---     #
+# Valid Arguments: 
+#   link: 
+#   timeout:
+#   packets: 
+#   sampling_prob: 
+simple_reorder_args_start: &simple_reorder_args_start { link: link_2_1, timeout: 100 }
+simple_reorder_args_stop: &simple_reorder_args_stop { link: link_2_1, timeout: 0 }
+
