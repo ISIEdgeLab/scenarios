@@ -3,6 +3,4 @@
       agent: tcpdump1
       method: startCollection
       args:
-        expression: *tcpdump1_expression
-        destination: *tcpdump1_destination
-
+        <<: *tcpdump1_args_start
