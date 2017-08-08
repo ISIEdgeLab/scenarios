@@ -1,4 +1,4 @@
-source ../scenario_functions.sh
+source /proj/edgect/scenarios/scenario_functions.sh
 
 # Available modules: rtp iperf targeted_loss simple_reorder tcpdump1
 TRAFFIC="rtp"
