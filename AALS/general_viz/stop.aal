@@ -1,0 +1,18 @@
+  general_viz_stop:
+    # Start Route Monitoring 
+    # See https://edgect.deterlab.net/wiki/VisualizationHowTo for details.
+    - type: event
+      agent: NodeStatAgentViz
+      method: stopCollection
+      trigger: statsVizStopOK
+      args: {}
+
+    - type: event
+      agent: RouteAgentViz
+      method: stopCollection
+      trigger: routeVizStopOK
+      args: {}
+
+    - type: trigger
+      triggers: [ {event: statsVizStopOK}, {event: routeVizStopOK} ]
+

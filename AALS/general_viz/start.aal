@@ -1,0 +1,20 @@
+  general_viz_start:
+    # Start Route and Node Monitoring 
+    # See https://edgect.deterlab.net/wiki/VisualizationHowTo for details.
+    
+    # This enables DeterDash to report general node stats (CPU, memory etc.)
+    - type: event
+      agent: NodeStatAgentViz
+      method: startCollection
+      args: {}
+      trigger: nodeStatsVizOK
+
+    # This enables DeterDash to visualize the topology emulated on vrouter(s) by Click
+    - type: event
+      agent: RouteAgentViz
+      method: startCollection
+      args: {}
+      trigger: routeVizOK
+
+    - type: trigger
+      triggers: [ {event: routeVizOK}, {event: nodeStatsVizOK} ]
