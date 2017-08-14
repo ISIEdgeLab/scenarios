@@ -1,7 +1,7 @@
 source /proj/edgect/scenarios/scenario_functions.sh
 
 # Available traffic modules: rtp iperf targeted_loss simple_reorder
-TRAFFIC="iperf targeted_loss simple_reorder"
+TRAFFIC="iperf"
 
 # Available impairments: targeted_loss simple_reorder
 IMPAIRMENT="targeted_loss simple_reorder"
