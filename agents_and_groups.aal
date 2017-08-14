@@ -95,6 +95,13 @@ agents:
     execargs:
       flows: [{}]
 
+### RTSP traffic #####
+  GstreamerRTSPAgent:
+    group: rtp_group
+    path: !!python/object/apply:string.join [[*agent_dir, "gstreamer/RTSPGenerator"], /]
+    execargs:
+      flows: [{}]
+
 ### iPerf traffic ####
   iPerf:
     group: iperf_group
