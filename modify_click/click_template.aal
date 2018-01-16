@@ -1,0 +1,32 @@
+# This is a template aal for custom click modification through 
+# wrappers - do not attempt to use this as an actual aal
+
+streamstarts: [start]
+
+groups:
+  click_group: [vrouter] 
+
+agents:
+  ClickAgent:
+    group: click_group
+    path: /users/lthurlow/magi_modules/clickControl/
+    execargs: {}
+
+# updateClickConfig(self, msg, node, key, value)
+eventstreams:
+  start:
+    - type: event
+      agent: ClickAgent
+      method: updateClickConfig
+      args:
+        msg:
+				node:
+        key:
+        value:
+				# msg: "FIXME"
+        # node: "link_1_2_bw"
+        # key: "delay"
+        # value: "100ms"
+
+# Configure vim for editing. Make vim stupid. Not AAL stuff, please ignore.
+# vim: noautoindent:nosmartindent:nocindent:expandtab:filetype=:ts=2:sw=2
