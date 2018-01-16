@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 source /proj/edgect/scenarios/scenario_functions.sh
 
 # Available traffic modules: rtp iperf targeted_loss simple_reorder

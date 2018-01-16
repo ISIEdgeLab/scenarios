@@ -1,4 +1,6 @@
-source ../scenario_functions.sh
+#!/usr/bin/env bash
+
+source /proj/edgect/scenarios/scenario_functions.sh
 
 MODULES="general_viz click rtp"
 echo "Starting: ${MODULES}"

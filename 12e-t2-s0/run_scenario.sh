@@ -1,4 +1,6 @@
-source ../scenario_functions.sh
+#!/usr/bin/env bash
+
+source /proj/edgect/scenarios/scenario_functions.sh
 
 # Available modules: general_viz rtp iperf
 MODULES="general_viz iperf"
