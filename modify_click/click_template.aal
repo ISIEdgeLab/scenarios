@@ -19,14 +19,10 @@ eventstreams:
       agent: ClickAgent
       method: updateClickConfig
       args:
-        msg:
-				node:
-        key:
-        value:
-				# msg: "FIXME"
-        # node: "link_1_2_bw"
-        # key: "delay"
-        # value: "100ms"
+        msg: MSG_REPLACE
+				node: NODE_REPLACE
+        key: KEY_REPLACE
+        value: VALUE_REPLACE
 
 # Configure vim for editing. Make vim stupid. Not AAL stuff, please ignore.
 # vim: noautoindent:nosmartindent:nocindent:expandtab:filetype=:ts=2:sw=2
