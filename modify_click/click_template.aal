@@ -20,7 +20,7 @@ eventstreams:
       method: updateClickConfig
       args:
         msg: MSG_REPLACE
-				node: NODE_REPLACE
+        node: NODE_REPLACE
         key: KEY_REPLACE
         value: VALUE_REPLACE
 
