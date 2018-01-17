@@ -163,6 +163,30 @@ def run_magi(aal_file: str, experiment_id: str, project_id: str) -> Tuple[bool, 
         return (True, stdout)
     return (False, stderr)
 
+# help the user find which projects are available to them
+def print_projects() -> None:
+    remote_cmd = 'for i in `groups`; do find /groups/ -maxdepth 1 -group $i; done'
+    remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
+    stdout, stderr = remote_proc.communicate()
+    # TODO: need to strip the prefix /groups/
+    if not stderr:
+        print(stdout)
+    else:
+        print('Unable to find any valid projects -- ')
+        LOG.error(stderr)
+
+# help the user find which experiments are apart of the selected project
+def print_experiments(project_id: str) -> None:
+    remote_cmd = 'find /groups/{project} -maxdepth 1'.format(project=project_id)
+    remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
+    stdout, stderr = remote_proc.communicate()
+    # TODO: need to strip the prefix /groups/{}/
+    if not stderr:
+        print(stdout)
+    else:
+        print('Unable to find any valid experiments -- ')
+        LOG.error(stderr)
+
 # print_elements is a hack approach, so instead of importing click control and getting
 # at the data ourselves, what we are going to do, is create a tmp aal with bogus inputs
 # give it to magi to run, and look at the logs returned by magi to find the variables
@@ -251,11 +275,14 @@ def get_value_for_key(element_key: str) -> str:
     LOG.debug('key set to "%s"', key_value)
     return key_value
 
-
-def get_experiment_id() -> str:
+def get_experiment_id(project_id: str) -> str:
     cursor = colored('(experiment id) > ', 'green')
     ask_value = 'Experiment Identifier?\n'
     exp_value = input(colored('{exp_id}{cursor}'.format(cursor=cursor, exp_id=ask_value), 'red'))
+    while exp_value == r'\h':
+        print_experiments(project_id)
+        exp_value = input(colored('{exp_id}{cursor}'\
+            .format(cursor=cursor, exp_id=ask_value), 'red'))
     # probably not the best way, but if yes Yes y or Y, accept the input
     accept = input('Experiment ID = {value}? ([y]/n) '.format(value=exp_value))
     # shouldnt reuse variable with different types...
@@ -263,7 +290,7 @@ def get_experiment_id() -> str:
     sys.stdout.flush()
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
-        return get_experiment_id()
+        return get_experiment_id(project_id)
     LOG.debug('experiment set to "%s"', exp_value)
     return exp_value
 
@@ -271,6 +298,10 @@ def get_project_id() -> str:
     cursor = colored('(project) > ', 'green')
     ask_value = 'Project Name?\n'
     proj_value = input(colored('{proj_id}{cursor}'.format(cursor=cursor, proj_id=ask_value), 'red'))
+    while proj_value == r'\h':
+        print_projects()
+        proj_value = input(colored('{proj_id}{cursor}'\
+            .format(cursor=cursor, proj_id=ask_value), 'red'))
     # probably not the best way, but if yes Yes y or Y, accept the input
     accept = input('Project Name is {value}? ([y]/n) '.format(value=proj_value))
     # shouldnt reuse variable with different types...
@@ -282,12 +313,11 @@ def get_project_id() -> str:
     LOG.debug('project set to "%s"', proj_value)
     return proj_value
 
-
 def get_inputs_from_user() -> Dict:
     inputs = {}
     try:
         project = get_project_id()
-        experiment = get_experiment_id()
+        experiment = get_experiment_id(project)
         click_element = get_click_element(experiment, project)
         element_key = get_key_for_element(click_element, experiment, project)
         key_value = get_value_for_key(element_key)
@@ -302,7 +332,25 @@ def get_inputs_from_user() -> Dict:
         sys.exit(2)
     return inputs
 
-# TODO: need to implement this
+def verified_host() -> bool:
+    remote_cmd = 'hostname'
+    remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
+    stdout, stderr = remote_proc.communicate()
+    if stderr:
+        return False
+    if stdout:
+        try:
+            stdout = stdout.decode('utf-8').strip()
+            hostname = stdout.split('.')
+            if '.'.join(hostname[-3:]) == 'isi.deterlab.net':
+                return True
+            else:
+                LOG.error('invalid hostname: %s - %s', stdout, hostname)
+        except IndexError:
+            print('unable to parse hostname, is the hostname set? Is it an ISI node?')
+            LOG.error('invalid hostname: %s', stdout)
+    return False
+
 def parse_input_file(path: str) -> Dict:
     comment = '#'
     input_dict = {
@@ -374,11 +422,23 @@ def parse_options() -> Dict:
 
 def main():
     options = parse_options()
+    # set the logger based on verbosity
+    if options.verbose:
+        LOG.setLevel(logging.DEBUG)
+    else:
+        LOG.setLevel(logging.WARN)
+    # check how the user is going to supply info to this program, this is required
     if options.interactive:
+        print(colored('Use \\h for available values - there is a delay with using help', 'red'))
         _ = get_inputs_from_user()
     elif options.file_input:
         _ = parse_input_file('file_input_example.txt')
 
 
 if __name__ == '__main__':
-    main()
+    # dont allow hosts not on deterlab to attempt to run this script
+    if verified_host():
+        main()
+    else:
+        print(colored('unable to run, must be on run on an isi.deterlab.net host', 'red'))
+        print(colored('if this host is on deterlab, make sure the FQDN is the hostname', 'red'))
