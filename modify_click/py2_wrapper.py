@@ -425,24 +425,24 @@ def parse_options():
     return args
 
 def main():
-    options = parse_options()
-    # set the logger based on verbosity
-    if options.verbose:
-        LOG.setLevel(logging.DEBUG)
-    else:
-        LOG.setLevel(logging.WARN)
-    # check how the user is going to supply info to this program, this is required
-    if options.interactive:
-        print colored(u'Use \\h for available values - there is a delay with using help', u'red')
-        _ = get_inputs_from_user(options.expinfo)
-    elif options.file_input:
-        _ = parse_input_file(u'file_input_example.txt')
-
-
-if __name__ == u'__main__':
     # dont allow hosts not on deterlab to attempt to run this script
     if verified_host():
-        main()
+        options = parse_options()
+        # set the logger based on verbosity
+        if options.verbose:
+            LOG.setLevel(logging.DEBUG)
+        else:
+            LOG.setLevel(logging.WARN)
+        # check how the user is going to supply info to this program, this is required
+        if options.interactive:
+            print colored(u'Use \\h for available values - there is a delay with using help', u'red')
+            _ = get_inputs_from_user(options.expinfo)
+        elif options.file_input:
+            _ = parse_input_file(u'file_input_example.txt')
     else:
         print colored(u'unable to run, must be on run on an isi.deterlab.net host', u'red')
         print colored(u'if this host is on deterlab, make sure the FQDN is the hostname', u'red')
+
+
+if __name__ == u'__main__':
+    main()
