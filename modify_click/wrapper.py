@@ -8,6 +8,8 @@ from subprocess import PIPE, Popen
 from typing import Dict, Tuple
 from termcolor import colored
 
+VERSION = '0.0.1'
+
 LOG_CONFIG = {
     'version': 1,
     'formatters': {
@@ -53,7 +55,7 @@ def fill_template(file_name: str, click_config: Dict) -> None:
     revised_contents = []
     change_me_tag = "_REPLACE"
     msg_str = "MSG"
-    node_str = "NODE"
+    ele_str = "ELEMENT"
     key_str = "KEY"
     val_str = "VALUE"
     # read template
@@ -67,8 +69,8 @@ def fill_template(file_name: str, click_config: Dict) -> None:
         if change_me_tag in line:
             if msg_str in line:
                 updated_line = line.replace(msg_str+change_me_tag, click_config[msg_str.lower()])
-            elif node_str in line:
-                updated_line = line.replace(node_str+change_me_tag, click_config[node_str.lower()])
+            elif ele_str in line:
+                updated_line = line.replace(ele_str+change_me_tag, click_config[ele_str.lower()])
             elif key_str in line:
                 updated_line = line.replace(key_str+change_me_tag, click_config[key_str.lower()])
             elif val_str in line:
@@ -161,16 +163,16 @@ def run_magi(aal_file: str, experiment_id: str, project_id: str) -> Tuple[bool, 
         return (True, stdout)
     return (False, stderr)
 
-# print_nodes is a hack approach, so instead of importing click control and getting
+# print_elements is a hack approach, so instead of importing click control and getting
 # at the data ourselves, what we are going to do, is create a tmp aal with bogus inputs
 # give it to magi to run, and look at the logs returned by magi to find the variables
 # we care about.
 # a bit of logic needs to go into this to infer which of the previous incorrect instructions
 # correlates to which run
-def print_nodes(experiment_id: str, project_id: str) -> None:
+def print_elements(experiment_id: str, project_id: str) -> None:
     bogus_dict = {
-        'msg': 'print_nodes',
-        'node': 'aaaaaaaaaaaaaaa_1_aaaaaaaaaaaaaaaaa',
+        'msg': 'print_elements',
+        'element': 'aaaaaaaaaaaaaaa_1_aaaaaaaaaaaaaaaaa',
         'key': 'garbage',
         'value': 'recycling',
     }
@@ -178,15 +180,15 @@ def print_nodes(experiment_id: str, project_id: str) -> None:
     aal = create_template_aal(bogus_dict, residual=False)
     print_notice()
     run_magi(aal, experiment_id, project_id)
-    node_logs = check_magi_logs('node', experiment_id, project_id)
+    element_logs = check_magi_logs('element', experiment_id, project_id)
     # some function here to format logs from error output to human readable
-    print(node_logs)
+    print(element_logs)
 
-# see comments for print_nodes on issues with implement
+# see comments for print_elements on issues with implement
 def print_keys(click_element: str, experiment_id: str, project_id: str) -> None:
     bogus_dict = {
         'msg': 'print_keys',
-        'node': click_element,
+        'element': click_element,
         'key': 'aaaaaaaaaaaaaaa_1_aaaaaaaaaaaaaaaaa',
         'value': 'recycling',
     }
@@ -203,7 +205,7 @@ def get_click_element(experiment_id: str, project_id: str) -> str:
     ask_click = 'Click Element:\n'
     click_element = input(colored('{click}{cursor}'.format(cursor=cursor, click=ask_click), 'red'))
     while click_element == r'\h':
-        print_nodes(experiment_id, project_id)
+        print_elements(experiment_id, project_id)
         click_element = input('{click}{cursor}'.format(cursor=cursor, click=ask_click))
     # probably not the best way, but if yes Yes y or Y, accept the input
     accept = input('set click_element to {element}? ([y]/n) '.format(element=click_element))
@@ -213,7 +215,7 @@ def get_click_element(experiment_id: str, project_id: str) -> str:
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
         return get_click_element(experiment_id, project_id)
-    LOG.debug('node set to "%s"', click_element)
+    LOG.debug('element set to "%s"', click_element)
     return click_element
 
 def get_key_for_element(element: str, experiment_id: str, project_id: str) -> str:
@@ -290,7 +292,7 @@ def get_inputs_from_user() -> Dict:
         element_key = get_key_for_element(click_element, experiment, project)
         key_value = get_value_for_key(element_key)
         inputs['msg'] = 'user_inputs'
-        inputs['node'] = click_element
+        inputs['element'] = click_element
         inputs['key'] = element_key
         inputs['value'] = key_value
         LOG.info(inputs)
@@ -305,7 +307,7 @@ def parse_input_file(path: str) -> Dict:
     comment = '#'
     input_dict = {
         'msg': None,
-        'node': None,
+        'element': None,
         'key': None,
         'value': None,
     }
@@ -333,17 +335,50 @@ def parse_input_file(path: str) -> Dict:
 
 # parse the user options specified
 def parse_options() -> Dict:
-    parser = argparse.ArgumentParser(description='Dynamically modify the click modular router.')
-    parser.add_argument('integers', metavar='N', type=int, nargs='+',
-                        help='an integer for the accumulator')
-    parser.add_argument('--sum', dest='accumulate', action='store_const',
-                        const=sum, default=max,
-                        help='sum the integers (default: find the max)')
+    parser = argparse.ArgumentParser(
+        description='Dynamically modify the click modular router.',
+        add_help=True,
+        allow_abbrev=True,
+        epilog='If you need assistance, or find any bugs, please report them to lincoln@isi.edu',
+        # 'examples:\n\t%(prog)s -f file_input_example.txt\n' \
+        # '\t%(prog)s -i\n' \
+        # '\t%(prog)s -e simple edgect -c "add delay" link_1_2_bw latency 10ms\n\n' \
+    )
+    parse_mode = parser.add_mutually_exclusive_group(required=True)
+    parse_mode.add_argument('-i', '--interactive', dest='interactive', action='store_true',
+                            default=False,
+                            help='use interactive mode to modify click modular router')
+
+    parse_mode.add_argument('-f', '--file', dest='file_input', action='store',
+                            default=None,
+                            help='parse a file rather than command line or interactive')
+
+    parse_mode.add_argument('-c', '--cmdline', dest='cmdline', action='store', nargs=4,
+                            default=[False], metavar=('MSG', 'ELEMENT', 'KEY', 'VALUE'),
+                            help='provide msg, element, key, and value through cmd options')
+
+    # unlike deter, we will parse -e pid, eid means nargs = '+', and check if valid later
+    # can use with -i and -c, and shortcut the process
+    parser.add_argument('-e', '--expinfo', dest='expinfo', action='store', nargs=2,
+                        default=[False], metavar=('PROJECT', 'EXPERIMENT'),
+                        help='give deterlab project and experiment info, cannot be used with -f')
+
+    parser.add_argument('-v', '--verbose', dest='verbose', action='store_true',
+                        default=False,
+                        help='print out debug logs')
+
+    parser.add_argument('--version', action='version', version='%(prog)s %(VERSION)s')
 
     args = parser.parse_args()
-    pass
+    return args
+
+def main():
+    options = parse_options()
+    if options.interactive:
+        _ = get_inputs_from_user()
+    elif options.file_input:
+        _ = parse_input_file('file_input_example.txt')
 
 
 if __name__ == '__main__':
-    _ = get_inputs_from_user()
-    # print( parse_input_file('file_input_example.txt') )
+    main()

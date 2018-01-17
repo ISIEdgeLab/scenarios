@@ -5,17 +5,17 @@
 # colon : is a special operator, can only be used with key: value
 
 msg: "example_function" # this is used for debugging purpose
-node: 'link_1_2_bw' # which click element you want to select
-key: latency # the click attribute for the node to be changed
+element: 'link_1_2_bw' # which click element you want to select
+key: latency # the click attribute for the element to be changed
 value: 10ms # the value, with correct suffix (Mbps, ms, etc)
 
-# no additional values will be read, if duplicate "keys" (node)
+# no additional values will be read, if duplicate "keys"
 # are provided, the last value will be used
 
 
 
 # simple version
 msg: change link_1_2 lantency
-node: link_1_2_bw
+element: link_1_2_bw
 key: latency
 value: 10ms
