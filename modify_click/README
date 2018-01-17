@@ -1,0 +1,43 @@
+High Level Description:
+
+Modify the click modular router without fussing with magi and magi agents.
+Make the experience easier and have a better user experience.
+
+
+Details:
+
+The main module is modify_click.py.  It is a wrapper around the aptly named
+wrapper.py and py2_wrapper.py.  modify_click.py only checks which version
+of python is calling it.  It will call py2_wrapper.py if being called by
+python version 2.x or wrapper.py for python 3.x.
+
+The code should be run on an isi.deterlab.net host, specifically one that
+mounts the users filesystem, and has access to the control host for an
+experiment.
+
+More details:
+
+Based on the inputs given by the user, the code configures a dictionary with
+['msg', 'element', 'key', 'value'] keys.  These keys are required by the
+clickAgent magi module (edgect/magi_modules).  Modifications were made to
+clickControl.py to verify if the correct click modules were entered. Replies
+are sent to /var/log/magi/daemon.log.  These logs are checked when a user
+uses the \h (help) input to parse through what available click elements, or
+keys are valid.  This command requires that a bogus aal is generated and run
+through click in order to generate a log message.
+
+
+
+The code base:
+
+modify_click.py
+ | - wrapper.py
+ | - py2_wrapper.py
+requirements.txt
+click_template.aal
+file_input_example.txt
+__init__.py
+
+Do not modify click_template.aal file.  Okay to modify file_input_example.txt
+
+Feedback/Questions/Bugs: Lincoln Thurlow <lincoln@isi.edu>
