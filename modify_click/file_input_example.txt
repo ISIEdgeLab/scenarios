@@ -1,0 +1,21 @@
+# this is an example of a file that can be used by
+# wrapper.py instead of command line or interactive
+# "#" denote comments, all characters after are not parsed
+# quotes (", ') are optional, can be used by programmer for ease
+# colon : is a special operator, can only be used with key: value
+
+msg: "example_function" # this is used for debugging purpose
+node: 'link_1_2_bw' # which click element you want to select
+key: latency # the click attribute for the node to be changed
+value: 10ms # the value, with correct suffix (Mbps, ms, etc)
+
+# no additional values will be read, if duplicate "keys" (node)
+# are provided, the last value will be used
+
+
+
+# simple version
+msg: change link_1_2 lantency
+node: link_1_2_bw
+key: latency
+value: 10ms

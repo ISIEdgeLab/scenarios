@@ -1,3 +1,4 @@
+import argparse
 import os
 import logging
 import logging.config
@@ -173,7 +174,7 @@ def print_nodes(experiment_id: str, project_id: str) -> None:
         'key': 'garbage',
         'value': 'recycling',
     }
-    # TODO: this is just for testing
+    # TODO: (residual=False) this is just for testing
     aal = create_template_aal(bogus_dict, residual=False)
     print_notice()
     run_magi(aal, experiment_id, project_id)
@@ -212,6 +213,7 @@ def get_click_element(experiment_id: str, project_id: str) -> str:
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
         return get_click_element(experiment_id, project_id)
+    LOG.debug('node set to "%s"', click_element)
     return click_element
 
 def get_key_for_element(element: str, experiment_id: str, project_id: str) -> str:
@@ -229,6 +231,7 @@ def get_key_for_element(element: str, experiment_id: str, project_id: str) -> st
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
         return get_key_for_element(element, experiment_id, project_id)
+    LOG.debug('key set to "%s"', element_key)
     return element_key
 
 def get_value_for_key(element_key: str) -> str:
@@ -243,6 +246,7 @@ def get_value_for_key(element_key: str) -> str:
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
         return get_value_for_key(element_key)
+    LOG.debug('key set to "%s"', key_value)
     return key_value
 
 
@@ -258,6 +262,7 @@ def get_experiment_id() -> str:
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
         return get_experiment_id()
+    LOG.debug('experiment set to "%s"', exp_value)
     return exp_value
 
 def get_project_id() -> str:
@@ -272,18 +277,18 @@ def get_project_id() -> str:
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
         return get_project_id()
+    LOG.debug('project set to "%s"', proj_value)
     return proj_value
 
 
 def get_inputs_from_user() -> Dict:
     inputs = {}
     try:
-        experiment = get_experiment_id()
         project = get_project_id()
+        experiment = get_experiment_id()
         click_element = get_click_element(experiment, project)
         element_key = get_key_for_element(click_element, experiment, project)
         key_value = get_value_for_key(element_key)
-        # TODO: add last step verification here.
         inputs['msg'] = 'user_inputs'
         inputs['node'] = click_element
         inputs['key'] = element_key
@@ -297,8 +302,48 @@ def get_inputs_from_user() -> Dict:
 
 # TODO: need to implement this
 def parse_input_file(path: str) -> Dict:
-    _ = path
+    comment = '#'
+    input_dict = {
+        'msg': None,
+        'node': None,
+        'key': None,
+        'value': None,
+    }
+    with open(path, 'r') as pfile:
+        for line in pfile:
+            # try our best to parse, if it didnt have what we were looking for, skip
+            # dont try to hard to make sure it all works, simple parser
+            try:
+                key_value = line.split(':')
+                key = key_value[0].strip()
+                value = key_value[1].strip()
+                if comment in value:
+                    value = value.split(comment)[0].strip()
+                if key in input_dict:
+                    LOG.debug('"%s" set to "%s"', key, value)
+                    input_dict[key] = value
+            # naughty to allow bare-except, but I dont want parser to break for any reason
+            # pylint: disable=bare-except
+            except:
+                pass
+    for key in input_dict:
+        if not input_dict[key]:
+            print("Error parsing file: {} was not defined.".format(key))
+    return input_dict
+
+# parse the user options specified
+def parse_options() -> Dict:
+    parser = argparse.ArgumentParser(description='Dynamically modify the click modular router.')
+    parser.add_argument('integers', metavar='N', type=int, nargs='+',
+                        help='an integer for the accumulator')
+    parser.add_argument('--sum', dest='accumulate', action='store_const',
+                        const=sum, default=max,
+                        help='sum the integers (default: find the max)')
+
+    args = parser.parse_args()
+    pass
 
 
 if __name__ == '__main__':
     _ = get_inputs_from_user()
+    # print( parse_input_file('file_input_example.txt') )
