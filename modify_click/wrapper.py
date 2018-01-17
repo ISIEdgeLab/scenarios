@@ -57,24 +57,26 @@ def fill_template(file_name: str, click_config: Dict) -> None:
     with open(file_name, 'r') as file_read:
         for line in file_read:
             template_contents.append(line)
+    import pdb
+    pdb.set_trace()
     # replace the keyword lines with the contents from the dictionary
     for line in template_contents:
         updated_line = line
         # just to shortcut branch prediction
         if change_me_tag in line:
             if msg_str in line:
-                updated_line.replace(msg_str+change_me_tag, click_config[msg_str.lower()])
+                updated_line = line.replace(msg_str+change_me_tag, click_config[msg_str.lower()])
             elif node_str in line:
-                updated_line.replace(node_str+change_me_tag, click_config[node_str.lower()])
+                updated_line = line.replace(node_str+change_me_tag, click_config[node_str.lower()])
             elif key_str in line:
-                updated_line.replace(key_str+change_me_tag, click_config[key_str.lower()])
+                updated_line = line.replace(key_str+change_me_tag, click_config[key_str.lower()])
             elif val_str in line:
-                updated_line.replace(val_str+change_me_tag, click_config[val_str.lower()])
+                updated_line = line.replace(val_str+change_me_tag, click_config[val_str.lower()])
 
         revised_contents.append(updated_line)
 
     # write back our updated template file
-    with open(file_name, 'wb') as file_write:
+    with open(file_name, 'w') as file_write:
         for line in revised_contents:
             file_write.write(line)
     LOG.debug('write finished - template updated')
@@ -83,7 +85,7 @@ def fill_template(file_name: str, click_config: Dict) -> None:
 def create_template_aal(click_config: Dict, residual: bool = True) -> str:
     LOG.debug('creating template')
     file_ptr = 'generated_click_template.aal'
-    base_template = './modify_click/click_template.aal'
+    base_template = './click_template.aal'
     temp_file = ''
     if residual:
         # create our temporary aal file
@@ -126,7 +128,8 @@ def print_nodes() -> None:
         'key': 'garbage',
         'value': 'recycling',
     }
-    aal = create_template_aal(bogus_dict)
+    # TODO: this is just for testing
+    aal = create_template_aal(bogus_dict, residual=False)
     print_notice()
     run_magi(aal)
     node_logs = check_magi_logs('node')
@@ -152,14 +155,15 @@ def print_keys(click_element: str) -> None:
 def get_click_element() -> str:
     cursor = colored('(element) > ', 'green')
     ask_click = 'Click Element:\n'
-    click_element = input('{click}{cursor}'.format(cursor=cursor, click=ask_click))
+    click_element = input(colored('{click}{cursor}'.format(cursor=cursor, click=ask_click), 'red'))
     while click_element == r'\h':
         print_nodes()
         click_element = input('{click}{cursor}'.format(cursor=cursor, click=ask_click))
     # probably not the best way, but if yes Yes y or Y, accept the input
-    accept = True if input(
-        'set click_element to {element}? (y/n)\n'.format(element=click_element)
-    )[0].lower() == 'y' else False
+    accept = input('set click_element to {element}? ([y]/n) '.format(element=click_element))
+    # shouldnt reuse variable with different types...
+    accept = True if not accept or accept[0].lower() == 'y' else False
+    sys.stdout.flush()
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
         return get_click_element()
@@ -168,14 +172,15 @@ def get_click_element() -> str:
 def get_key_for_element(element: str) -> str:
     cursor = colored('(key) > ', 'green')
     ask_key = 'Element Key (to change):\n'
-    element_key = input('{ekey}{cursor}'.format(cursor=cursor, ekey=ask_key))
+    element_key = input(colored('{ekey}{cursor}'.format(cursor=cursor, ekey=ask_key), 'red'))
     while element_key == r'\h':
         print_keys(element)
         element_key = input('{ekey}{cursor}'.format(cursor=cursor, ekey=ask_key))
     # probably not the best way, but if yes Yes y or Y, accept the input
-    accept = True if input(
-        'set key to {key}? (y/n)\n'.format(key=element_key)
-    )[0].lower() == 'y' else False
+    accept = input('set key to {key}? ([y]/n) '.format(key=element_key))
+    # shouldnt reuse variable with different types...
+    accept = True if not accept or accept[0].lower() == 'y' else False
+    sys.stdout.flush()
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
         return get_key_for_element(element)
@@ -183,18 +188,19 @@ def get_key_for_element(element: str) -> str:
 
 def get_value_for_key(element_key: str) -> str:
     cursor = colored('(value) > ', 'green')
-    ask_value = '{key}:\n'.format(key=element_key)
-    key_value = input('{kv}{cursor}'.format(cursor=cursor, kv=ask_value))
+    ask_value = 'set "{key}" to what value:\n'.format(key=element_key)
+    key_value = input(colored('{kv}{cursor}'.format(cursor=cursor, kv=ask_value), 'red'))
     while key_value == r'\h':
         key_value = input('{kv}{cursor}'.format(cursor=cursor, kv=ask_value))
     # probably not the best way, but if yes Yes y or Y, accept the input
-    accept = True if input(
-        'set value for {key} to {value}? (y/n)\n'.format(key=element_key, value=key_value)
-    )[0].lower() == 'y' else False
+    accept = input('set "{key}" to {value}? ([y]/n) '.format(key=element_key, value=key_value))
+    # shouldnt reuse variable with different types...
+    accept = True if not accept or accept[0].lower() == 'y' else False
+    sys.stdout.flush()
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
         return get_key_for_element(element_key)
-    return element_key
+    return key_value
 
 def get_inputs_from_user() -> Dict:
     inputs = {}
@@ -207,6 +213,7 @@ def get_inputs_from_user() -> Dict:
         inputs['node'] = click_element
         inputs['key'] = element_key
         inputs['value'] = key_value
+        LOG.info(inputs)
         return inputs
     except KeyboardInterrupt:
         print('exiting program - not saving results')
