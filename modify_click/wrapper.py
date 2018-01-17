@@ -57,8 +57,6 @@ def fill_template(file_name: str, click_config: Dict) -> None:
     with open(file_name, 'r') as file_read:
         for line in file_read:
             template_contents.append(line)
-    import pdb
-    pdb.set_trace()
     # replace the keyword lines with the contents from the dictionary
     for line in template_contents:
         updated_line = line
