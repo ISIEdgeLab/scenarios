@@ -5,7 +5,7 @@ import logging.config
 import sys
 import tempfile
 from subprocess import PIPE, Popen
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 from termcolor import colored
 
 VERSION = '0.0.1'
@@ -45,7 +45,7 @@ def grep_magi_logs():
 def print_notice() -> None:
     print(
         'Notice: this script is going to access magi logs.  This may take a while.\n ' \
-        'Make sure your experiment is swapped in, magi is running on the vrouter node.\n ' \
+        'Make sure your experiment is swapped in, magi is running on the click node.\n ' \
         'If you need assistances, please email lincoln@isi.edu.\n'
     )
 
@@ -313,11 +313,16 @@ def get_project_id() -> str:
     LOG.debug('project set to "%s"', proj_value)
     return proj_value
 
-def get_inputs_from_user() -> Dict:
+def get_inputs_from_user(expinfo: List[str]) -> Dict:
     inputs = {}
     try:
-        project = get_project_id()
-        experiment = get_experiment_id(project)
+        if expinfo:
+            print('project : {}, experiment: {} (cmdline)'.format(expinfo[0], expinfo[1]))
+            project = expinfo[0]
+            experiment = expinfo[1]
+        else:
+            project = get_project_id()
+            experiment = get_experiment_id(project)
         click_element = get_click_element(experiment, project)
         element_key = get_key_for_element(click_element, experiment, project)
         key_value = get_value_for_key(element_key)
@@ -430,7 +435,7 @@ def main():
     # check how the user is going to supply info to this program, this is required
     if options.interactive:
         print(colored('Use \\h for available values - there is a delay with using help', 'red'))
-        _ = get_inputs_from_user()
+        _ = get_inputs_from_user(options.expinfo)
     elif options.file_input:
         _ = parse_input_file('file_input_example.txt')
 
