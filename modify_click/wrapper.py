@@ -168,9 +168,8 @@ def print_projects() -> None:
     remote_cmd = 'for i in `groups`; do find /groups/ -maxdepth 1 -group $i; done'
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
-    # TODO: need to strip the prefix /groups/
     if not stderr:
-        print(stdout)
+        print('\n'.join([x.split('/')[-1] for x in stdout.split('\n') if x]))
     else:
         print('Unable to find any valid projects -- ')
         LOG.error(stderr)
@@ -180,9 +179,8 @@ def print_experiments(project_id: str) -> None:
     remote_cmd = 'find /groups/{project} -maxdepth 1'.format(project=project_id)
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
-    # TODO: need to strip the prefix /groups/{}/
     if not stderr:
-        print(stdout)
+        print('\n'.join([x.split('/')[-1] for x in stdout.split('\n') if x]))
     else:
         print('Unable to find any valid experiments -- ')
         LOG.error(stderr)
