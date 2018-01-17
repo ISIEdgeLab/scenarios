@@ -117,7 +117,7 @@ def check_magi_logs(keyword, experiment_id, project_id):
     magi_log_location = u'/var/log/magi/logs/daemon.log'
     # more efficient mechanisms... make an assumption about what magi is spewing to logs
     # using tail -n X, here we make no assumption, just hope magi logs are not HUGE
-    remote_cmd = u'ssh control.{exp}.{proj}.isi.deterlab.edu ' \
+    remote_cmd = u'ssh control.{exp}.{proj}.isi.deterlab.net ' \
         u'cat {magi_logs}'.format(
             exp=experiment_id,
             proj=project_id,
@@ -153,7 +153,7 @@ def check_magi_logs(keyword, experiment_id, project_id):
 # it should return a tuple (bool, str) where bool is wether run succeeded
 # the str being the logs assosciated with the run.
 def run_magi(aal_file, experiment_id, project_id):
-    remote_cmd = u'ssh control.{exp}.{proj}.isi.deterlab.edu ' \
+    remote_cmd = u'ssh control.{exp}.{proj}.isi.deterlab.net ' \
         u'magi_orchestrator.py -c localhost -f {aal}'.format(
             exp=experiment_id,
             proj=project_id,
