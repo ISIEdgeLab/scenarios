@@ -356,6 +356,17 @@ def verified_host() -> bool:
             LOG.error('invalid hostname: %s', stdout)
     return False
 
+# TODO: add checking, or make options better
+def set_cmdline_opts(options: List[str]):
+    input_dict = {
+        'msg': options[0],
+        'element': options[1],
+        'key': options[2],
+        'value': options[3],
+    }
+    LOG.debug(input_dict)
+    return input_dict
+
 def parse_input_file(path: str) -> Dict:
     comment = '#'
     input_dict = {
@@ -439,7 +450,9 @@ def main():
             print(colored('Use \\h for available values - there is a delay with using help', 'red'))
             _ = get_inputs_from_user(options.expinfo)
         elif options.file_input:
-            _ = parse_input_file('file_input_example.txt')
+            _ = parse_input_file(options.file_input)
+        elif options.cmdline:
+            _ = set_cmdline_opts(options.cmdline)
     else:
         print(colored('unable to run, must be on run on an isi.deterlab.net host', 'red'))
         print(colored('if this host is on deterlab, make sure the FQDN is the hostname', 'red'))
