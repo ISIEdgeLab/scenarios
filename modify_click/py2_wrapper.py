@@ -359,7 +359,7 @@ def verified_host():
     return False
 
 # TODO: add checking, or make options better
-def set_cmdline_opts(options: List[str]):
+def set_cmdline_opts(options):
     input_dict = {
         'msg': options[0],
         'element': options[1],
