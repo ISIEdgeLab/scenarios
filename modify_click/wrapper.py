@@ -39,9 +39,6 @@ LOG = logging.getLogger(__name__)
 class ParseError(Exception):
     pass
 
-def grep_magi_logs():
-    pass
-
 def print_notice() -> None:
     print(
         'Notice: this script is going to access magi logs.  This may take a while.\n ' \
@@ -92,7 +89,7 @@ def create_template_aal(click_config: Dict, residual: bool = True) -> str:
     temp_file = ''
     if residual:
         # create our temporary aal file
-        temp_name = tempfile.gettempdir()+file_ptr
+        temp_name = tempfile.gettempdir()+'/'+file_ptr
         temp_file = open(temp_name, 'wb')
     else:
         if os.path.isfile(base_template):
@@ -105,7 +102,11 @@ def create_template_aal(click_config: Dict, residual: bool = True) -> str:
             temp_file.write(line)
     temp_file.close()
     fill_template(temp_file.name, click_config)
-    return temp_file.name
+    # add the absolute path to name as it will run remotely from home dir
+    # os.getcwd unfortunately resolves symbolic links which differ from users to control
+    # environment variable pwd does not resolve the sym links
+    prefix_path = os.environ['PWD']
+    return prefix_path+'/'+temp_file.name
 
 # ssh into the vrouter server, find the logs, and do best to parse the
 # logs for the current run
@@ -137,7 +138,10 @@ def check_magi_logs(keyword: str, experiment_id: str, project_id: str, server: s
     for line in stdout.decode('utf-8').strip().split('\n')[::-1]:
         if keyword.upper() in line:
             # this is a hack - better methods, but should be quick
-            return line
+            # now lets parse the line for user friendliness
+            pretty = line[line.index('['):]
+            pretty_list = sorted([str(x.replace("'",'')).strip() for x in pretty[1:-1].split(',')])
+            return '\n'.join(pretty_list)+'\n'
         if count < 20:
             last_twenty_lines.append(line)
         count += 1
@@ -153,7 +157,7 @@ def check_magi_logs(keyword: str, experiment_id: str, project_id: str, server: s
 # the str being the logs assosciated with the run.
 def run_magi(aal_file: str, experiment_id: str, project_id: str, server: str) -> Tuple[bool, str]:
     remote_cmd = 'ssh {control}.{exp}.{proj}.isi.deterlab.net ' \
-        'magi_orchestrator.py -c localhost -f {aal}'.format(
+        'sudo magi_orchestrator.py -c localhost -f {aal}'.format(
             exp=experiment_id,
             proj=project_id,
             aal=aal_file,
@@ -161,6 +165,8 @@ def run_magi(aal_file: str, experiment_id: str, project_id: str, server: str) ->
         )
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
+    LOG.debug(stdout)
+    LOG.debug(stderr)
     if not stderr:
         return (True, stdout)
     return (False, stderr)
@@ -178,11 +184,12 @@ def print_projects() -> None:
 
 # help the user find which experiments are apart of the selected project
 def print_experiments(project_id: str) -> None:
-    remote_cmd = 'find /groups/{project} -maxdepth 1'.format(project=project_id)
+    # if this should be defined by -user (only ones the user created, or all group projects
+    remote_cmd = u'find /proj/{project}/exp/ -maxdepth 1 -group {project}'.format(project=project_id)
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
     if not stderr:
-        print('\n'.join([x.split('/')[-1] for x in stdout.split('\n') if x]))
+        print('\n'.join(sorted([x.split('/')[-1] for x in stdout.split('\n') if x])))
     else:
         print('Unable to find any valid experiments -- ')
         LOG.error(stderr)

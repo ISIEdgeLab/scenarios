@@ -1,10 +1,12 @@
+#!/usr/bin/env python
+# pylint: disable=import-error
 import sys
 
-py_version = int(sys.version_info[0])
-print(py_version)
-if py_version == 2:
+PY_VERSION = int(sys.version_info[0])
+print(PY_VERSION)
+if PY_VERSION == 2:
     import py2_wrapper
     py2_wrapper.main()
-elif py_version == 3:
+elif PY_VERSION == 3:
     import wrapper
     wrapper.main()
