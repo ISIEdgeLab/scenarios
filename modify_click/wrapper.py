@@ -107,20 +107,20 @@ def create_template_aal(click_config: Dict, residual: bool = True) -> str:
     fill_template(temp_file.name, click_config)
     return temp_file.name
 
-# FIXME: hardcoded vrouter, need a way to specify click router, default to vrouter
 # ssh into the vrouter server, find the logs, and do best to parse the
 # logs for the current run
 # yolo - will run magi on smaller nodes tomorrow to verifying logging works
-def check_magi_logs(keyword: str, experiment_id: str, project_id: str) -> str:
+def check_magi_logs(keyword: str, experiment_id: str, project_id: str, server: str) -> str:
     # these logs only exist when experiment swapped in, where magi running and mounted
     magi_log_location = '/var/log/magi/logs/daemon.log'
     # more efficient mechanisms... make an assumption about what magi is spewing to logs
     # using tail -n X, here we make no assumption, just hope magi logs are not HUGE
-    remote_cmd = 'ssh vrouter.{exp}.{proj}.isi.deterlab.net ' \
+    remote_cmd = 'ssh {vrouter}.{exp}.{proj}.isi.deterlab.net ' \
         'cat {magi_logs}'.format(
             exp=experiment_id,
             proj=project_id,
             magi_logs=magi_log_location,
+            vrouter=server,
         )
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
@@ -148,16 +148,16 @@ def check_magi_logs(keyword: str, experiment_id: str, project_id: str) -> str:
         )
     )
 
-# FIXME: same thing for hardcoded server
 # run magi script passing in the templated aal file for click to parse
 # it should return a tuple (bool, str) where bool is wether run succeeded
 # the str being the logs assosciated with the run.
-def run_magi(aal_file: str, experiment_id: str, project_id: str) -> Tuple[bool, str]:
-    remote_cmd = 'ssh control.{exp}.{proj}.isi.deterlab.net ' \
+def run_magi(aal_file: str, experiment_id: str, project_id: str, server: str) -> Tuple[bool, str]:
+    remote_cmd = 'ssh {control}.{exp}.{proj}.isi.deterlab.net ' \
         'magi_orchestrator.py -c localhost -f {aal}'.format(
             exp=experiment_id,
             proj=project_id,
             aal=aal_file,
+            control=server,
         )
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
@@ -193,7 +193,8 @@ def print_experiments(project_id: str) -> None:
 # we care about.
 # a bit of logic needs to go into this to infer which of the previous incorrect instructions
 # correlates to which run
-def print_elements(experiment_id: str, project_id: str) -> None:
+def print_elements(experiment_id: str, project_id: str,
+                   control_server: str, click_server: str) -> None:
     bogus_dict = {
         'msg': 'print_elements',
         'element': 'aaaaaaaaaaaaaaa_1_aaaaaaaaaaaaaaaaa',
@@ -203,13 +204,14 @@ def print_elements(experiment_id: str, project_id: str) -> None:
     # TODO: (residual=False) this is just for testing
     aal = create_template_aal(bogus_dict, residual=False)
     print_notice()
-    run_magi(aal, experiment_id, project_id)
-    element_logs = check_magi_logs('element', experiment_id, project_id)
+    run_magi(aal, experiment_id, project_id, control_server)
+    element_logs = check_magi_logs('element', experiment_id, project_id, click_server)
     # some function here to format logs from error output to human readable
     print(element_logs)
 
 # see comments for print_elements on issues with implement
-def print_keys(click_element: str, experiment_id: str, project_id: str) -> None:
+def print_keys(click_element: str, experiment_id: str, project_id: str,
+               control_server: str, click_server: str) -> None:
     bogus_dict = {
         'msg': 'print_keys',
         'element': click_element,
@@ -218,18 +220,18 @@ def print_keys(click_element: str, experiment_id: str, project_id: str) -> None:
     }
     aal = create_template_aal(bogus_dict)
     print_notice()
-    run_magi(aal, experiment_id, project_id)
-    key_logs = check_magi_logs('key', experiment_id, project_id)
+    run_magi(aal, experiment_id, project_id, control_server)
+    key_logs = check_magi_logs('key', experiment_id, project_id, click_server)
     # some function here to format logs from error output to human readable
     print(key_logs)
 
 
-def get_click_element(experiment_id: str, project_id: str) -> str:
+def get_click_element(experiment_id: str, project_id: str, control: str, click: str) -> str:
     cursor = colored('(element) > ', 'green')
     ask_click = 'Click Element:\n'
     click_element = input(colored('{click}{cursor}'.format(cursor=cursor, click=ask_click), 'red'))
     while click_element == r'\h':
-        print_elements(experiment_id, project_id)
+        print_elements(experiment_id, project_id, control, click)
         click_element = input('{click}{cursor}'.format(cursor=cursor, click=ask_click))
     # probably not the best way, but if yes Yes y or Y, accept the input
     accept = input('set click_element to {element}? ([y]/n) '.format(element=click_element))
@@ -238,16 +240,17 @@ def get_click_element(experiment_id: str, project_id: str) -> str:
     sys.stdout.flush()
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
-        return get_click_element(experiment_id, project_id)
+        return get_click_element(experiment_id, project_id, control, click)
     LOG.debug('element set to "%s"', click_element)
     return click_element
 
-def get_key_for_element(element: str, experiment_id: str, project_id: str) -> str:
+def get_key_for_element(element: str, experiment_id: str, project_id: str,
+                        control: str, click: str) -> str:
     cursor = colored('(key) > ', 'green')
     ask_key = 'Element Key (to change):\n'
     element_key = input(colored('{ekey}{cursor}'.format(cursor=cursor, ekey=ask_key), 'red'))
     while element_key == r'\h':
-        print_keys(element, experiment_id, project_id)
+        print_keys(element, experiment_id, project_id, control, click)
         element_key = input('{ekey}{cursor}'.format(cursor=cursor, ekey=ask_key))
     # probably not the best way, but if yes Yes y or Y, accept the input
     accept = input('set key to {key}? ([y]/n) '.format(key=element_key))
@@ -256,7 +259,7 @@ def get_key_for_element(element: str, experiment_id: str, project_id: str) -> st
     sys.stdout.flush()
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
-        return get_key_for_element(element, experiment_id, project_id)
+        return get_key_for_element(element, experiment_id, project_id, control, click)
     LOG.debug('key set to "%s"', element_key)
     return element_key
 
@@ -313,7 +316,7 @@ def get_project_id() -> str:
     LOG.debug('project set to "%s"', proj_value)
     return proj_value
 
-def get_inputs_from_user(expinfo: List[str]) -> Dict:
+def get_inputs_from_user(expinfo: List[str], control: str, click: str) -> Dict:
     inputs = {}
     try:
         if expinfo:
@@ -323,8 +326,8 @@ def get_inputs_from_user(expinfo: List[str]) -> Dict:
         else:
             project = get_project_id()
             experiment = get_experiment_id(project)
-        click_element = get_click_element(experiment, project)
-        element_key = get_key_for_element(click_element, experiment, project)
+        click_element = get_click_element(experiment, project, control, click)
+        element_key = get_key_for_element(click_element, experiment, project, control, click)
         key_value = get_value_for_key(element_key)
         inputs['msg'] = 'user_inputs'
         inputs['element'] = click_element
@@ -427,6 +430,14 @@ def parse_options() -> Dict:
                         default=False, metavar=('PROJECT', 'EXPERIMENT'),
                         help='give deterlab project and experiment info, cannot be used with -f')
 
+    parser.add_argument('--control', dest='control_node', action='store',
+                        default='control', metavar=('CONTROL_NODE'),
+                        help='specify the control node used in the experiment')
+
+    parser.add_argument('--click', dest='click_node', action='store',
+                        default='vrouter', metavar=('CLICK_NODE'),
+                        help='specify the node with click installed on it')
+
     parser.add_argument('-v', '--verbose', dest='verbose', action='store_true',
                         default=False,
                         help='print out debug logs')
@@ -448,7 +459,7 @@ def main():
         # check how the user is going to supply info to this program, this is required
         if options.interactive:
             print(colored('Use \\h for available values - there is a delay with using help', 'red'))
-            _ = get_inputs_from_user(options.expinfo)
+            _ = get_inputs_from_user(options.expinfo, options.control, options.click)
         elif options.file_input:
             _ = parse_input_file(options.file_input)
         elif options.cmdline:
