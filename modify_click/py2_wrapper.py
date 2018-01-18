@@ -109,7 +109,8 @@ def create_template_aal(click_config, residual = True):
     fill_template(temp_file.name, click_config)
     return temp_file.name
 
-# ssh into the control server, find the logs, and do best to parse the
+# FIXME: hardcoded vrouter, need a way to specify click router, default to vrouter
+# ssh into the vrouter server, find the logs, and do best to parse the
 # logs for the current run
 # yolo - will run magi on smaller nodes tomorrow to verifying logging works
 def check_magi_logs(keyword, experiment_id, project_id):
@@ -117,7 +118,7 @@ def check_magi_logs(keyword, experiment_id, project_id):
     magi_log_location = u'/var/log/magi/logs/daemon.log'
     # more efficient mechanisms... make an assumption about what magi is spewing to logs
     # using tail -n X, here we make no assumption, just hope magi logs are not HUGE
-    remote_cmd = u'ssh control.{exp}.{proj}.isi.deterlab.net ' \
+    remote_cmd = u'ssh vrouter.{exp}.{proj}.isi.deterlab.net ' \
         u'cat {magi_logs}'.format(
             exp=experiment_id,
             proj=project_id,
@@ -135,7 +136,7 @@ def check_magi_logs(keyword, experiment_id, project_id):
     last_twenty_lines = []
     count = 0
     # for line in reversed(list(open(magi_log_location, 'rb'))):
-    for line in stdout:
+    for line in stdout.decode('utf-8').strip().split('\n')[::-1]:
         if keyword.upper() in line:
             # this is a hack - better methods, but should be quick
             return line
@@ -143,12 +144,13 @@ def check_magi_logs(keyword, experiment_id, project_id):
             last_twenty_lines.append(line)
         count += 1
     raise ParseError(
-        u'unable to find "{kw}" in magi logs.  Dump of last 20 lines of logs: {logs}'.format(
+        u'unable to find "{kw}" in magi logs.  Dump of last 20 lines of logs:\n\n{logs}'.format(
             kw=keyword,
-            logs=last_twenty_lines[::-1],
+            logs='\n'.join(last_twenty_lines[::-1]),
         )
     )
 
+# FIXME: same thing for hardcoded server
 # run magi script passing in the templated aal file for click to parse
 # it should return a tuple (bool, str) where bool is wether run succeeded
 # the str being the logs assosciated with the run.
@@ -406,13 +408,13 @@ def parse_options():
                             help=u'parse a file rather than command line or interactive')
 
     parse_mode.add_argument(u'-c', u'--cmdline', dest=u'cmdline', action=u'store', nargs=4,
-                            default=[False], metavar=(u'MSG', u'ELEMENT', u'KEY', u'VALUE'),
+                            default=False, metavar=(u'MSG', u'ELEMENT', u'KEY', u'VALUE'),
                             help=u'provide msg, element, key, and value through cmd options')
 
     # unlike deter, we will parse -e pid, eid means nargs = '+', and check if valid later
     # can use with -i and -c, and shortcut the process
     parser.add_argument(u'-e', u'--expinfo', dest=u'expinfo', action=u'store', nargs=2,
-                        default=[False], metavar=(u'PROJECT', u'EXPERIMENT'),
+                        default=False, metavar=(u'PROJECT', u'EXPERIMENT'),
                         help=u'give deterlab project and experiment info, cannot be used with -f')
 
     parser.add_argument(u'-v', u'--verbose', dest=u'verbose', action=u'store_true',
