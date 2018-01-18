@@ -140,7 +140,7 @@ def check_magi_logs(keyword: str, experiment_id: str, project_id: str, server: s
             # this is a hack - better methods, but should be quick
             # now lets parse the line for user friendliness
             pretty = line[line.index('['):]
-            pretty_list = sorted([str(x.replace("'",'')).strip() for x in pretty[1:-1].split(',')])
+            pretty_list = sorted([str(x.replace("'", '')).strip() for x in pretty[1:-1].split(',')])
             return '\n'.join(pretty_list)+'\n'
         if count < 20:
             last_twenty_lines.append(line)
@@ -155,7 +155,8 @@ def check_magi_logs(keyword: str, experiment_id: str, project_id: str, server: s
 # run magi script passing in the templated aal file for click to parse
 # it should return a tuple (bool, str) where bool is wether run succeeded
 # the str being the logs assosciated with the run.
-def run_magi(aal_file: str, experiment_id: str, project_id: str, server: str) -> Tuple[bool, str]:
+def run_magi(aal_file: str, experiment_id: str, project_id: str,
+             server: str = 'control') -> Tuple[bool, str]:
     remote_cmd = 'ssh {control}.{exp}.{proj}.isi.deterlab.net ' \
         'sudo magi_orchestrator.py -c localhost -f {aal}'.format(
             exp=experiment_id,
@@ -185,7 +186,7 @@ def print_projects() -> None:
 # help the user find which experiments are apart of the selected project
 def print_experiments(project_id: str) -> None:
     # if this should be defined by -user (only ones the user created, or all group projects
-    remote_cmd = u'find /proj/{project}/exp/ -maxdepth 1 -group {project}'.format(project=project_id)
+    remote_cmd = 'find /proj/{project}/exp/ -maxdepth 1 -group {project}'.format(project=project_id)
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
     if not stderr:
@@ -208,10 +209,9 @@ def print_elements(experiment_id: str, project_id: str,
         'key': 'garbage',
         'value': 'recycling',
     }
-    # TODO: (residual=False) this is just for testing
-    aal = create_template_aal(bogus_dict, residual=False)
+    aal = create_template_aal(bogus_dict)
     print_notice()
-    run_magi(aal, experiment_id, project_id, control_server)
+    run_magi(aal, experiment_id, project_id, server=control_server)
     element_logs = check_magi_logs('element', experiment_id, project_id, click_server)
     # some function here to format logs from error output to human readable
     print(element_logs)
@@ -227,7 +227,7 @@ def print_keys(click_element: str, experiment_id: str, project_id: str,
     }
     aal = create_template_aal(bogus_dict)
     print_notice()
-    run_magi(aal, experiment_id, project_id, control_server)
+    run_magi(aal, experiment_id, project_id, server=control_server)
     key_logs = check_magi_logs('key', experiment_id, project_id, click_server)
     # some function here to format logs from error output to human readable
     print(key_logs)
@@ -323,19 +323,56 @@ def get_project_id() -> str:
     LOG.debug('project set to "%s"', proj_value)
     return proj_value
 
-def get_inputs_from_user(expinfo: List[str], control: str, click: str) -> Dict:
+def get_server(server_type: str) -> str:
+    default = 'vrouter' if server_type == 'click' else 'control'
+    cursor = colored('({stype}_server) [default={dtype}] > '\
+        .format(stype=server_type, dtype=default), 'green')
+    ask_type = '{stype} server hostname? \n'.format(stype=server_type)
+    response = input(colored('{stype}{cursor}'.format(cursor=cursor, stype=ask_type), 'red'))
+    # probably not the best way, but if yes Yes y or Y, accept the input
+    accept = input('{stype} server hostname is {value}? ([y]/n) '\
+        .format(value=response if response else default, stype=server_type))
+    # shouldnt reuse variable with different types...
+    accept = True if not accept or accept[0].lower() == 'y' else False
+    sys.stdout.flush()
+    # super ghetto, but just recurse for no reason until they figure out what they want
+    if not accept:
+        return get_server(server_type)
+    LOG.debug('{stype} server hostname set to "%s"', response)
+    return response
+
+def get_inputs_from_user(options: argparse = None) -> Dict:
     inputs = {}
     try:
-        if expinfo:
-            print('project : {}, experiment: {} (cmdline)'.format(expinfo[0], expinfo[1]))
-            project = expinfo[0]
-            experiment = expinfo[1]
+        if not options: # about 99% sure this will throw, but yolo
+            options.project = None
+            options.experiment = None
+            options.click_server = None
+            options.control_server = None
+        if options.project:
+            project = options.project
         else:
             project = get_project_id()
+        if options.experiment:
+            experiment = options.experiment
+        else:
             experiment = get_experiment_id(project)
+
+        if options.click_server:
+            click = options.click_server
+        else:
+            click = get_server('click')
+        if options.control_server:
+            control = options.control_server
+        else:
+            control = get_server('control')
         click_element = get_click_element(experiment, project, control, click)
         element_key = get_key_for_element(click_element, experiment, project, control, click)
         key_value = get_value_for_key(element_key)
+        inputs['control_server'] = control
+        inputs['click_server'] = click
+        inputs['project'] = project
+        inputs['experiment'] = experiment
         inputs['msg'] = 'user_inputs'
         inputs['element'] = click_element
         inputs['key'] = element_key
@@ -367,12 +404,16 @@ def verified_host() -> bool:
     return False
 
 # TODO: add checking, or make options better
-def set_cmdline_opts(options: List[str]):
+def set_cmdline_opts(click_info: List[str], project: str = None, experiment: str = None):
     input_dict = {
-        'msg': options[0],
-        'element': options[1],
-        'key': options[2],
-        'value': options[3],
+        'click_server': None,
+        'control_server': None,
+        'project': project,
+        'experiment': experiment,
+        'msg': click_info[0],
+        'element': click_info[1],
+        'key': click_info[2],
+        'value': click_info[3],
     }
     LOG.debug(input_dict)
     return input_dict
@@ -380,6 +421,10 @@ def set_cmdline_opts(options: List[str]):
 def parse_input_file(path: str) -> Dict:
     comment = '#'
     input_dict = {
+        'click_server': None,
+        'control_server': None,
+        'project': None,
+        'experiment': None,
         'msg': None,
         'element': None,
         'key': None,
@@ -431,18 +476,24 @@ def parse_options() -> Dict:
                             default=False, metavar=('MSG', 'ELEMENT', 'KEY', 'VALUE'),
                             help='provide msg, element, key, and value through cmd options')
 
-    # unlike deter, we will parse -e pid, eid means nargs = '+', and check if valid later
-    # can use with -i and -c, and shortcut the process
-    parser.add_argument('-e', '--expinfo', dest='expinfo', action='store', nargs=2,
-                        default=False, metavar=('PROJECT', 'EXPERIMENT'),
-                        help='give deterlab project and experiment info, cannot be used with -f')
+    parser.add_argument('-e', '--experiment', dest='experiment', action='store',
+                        default=False, metavar=('EXPERIMENT'),
+                        help='give deterlab experiment identifier')
 
-    parser.add_argument('--control', dest='control_node', action='store',
-                        default='control', metavar=('CONTROL_NODE'),
+    parser.add_argument('-p', '--project', dest='project', action='store',
+                        default=False, metavar=('PROJECT'),
+                        help='give deterlab project identifier')
+
+    parser.add_argument('-y', '--yes', dest='ignore', action='store_true',
+                        default=False,
+                        help='dont prompt user for anything, cannot be used with -i')
+
+    parser.add_argument('--control', dest='control_server', action='store',
+                        default=False, metavar=('CONTROL HOSTNAME'),
                         help='specify the control node used in the experiment')
 
-    parser.add_argument('--click', dest='click_node', action='store',
-                        default='vrouter', metavar=('CLICK_NODE'),
+    parser.add_argument('--click', dest='click_server', action='store',
+                        default=False, metavar=('CLICK HOSTNAME'),
                         help='specify the node with click installed on it')
 
     parser.add_argument('-v', '--verbose', dest='verbose', action='store_true',
@@ -450,8 +501,11 @@ def parse_options() -> Dict:
                         help='print out debug logs')
 
     parser.add_argument('--version', action='version', version='%(prog)s %(VERSION)s')
-
     args = parser.parse_args()
+    if args.ignore and args.interactive:
+        parser.print_help()
+        sys.stderr.write(colored('ERROR: cannot use -i and -y in conjunction\n', 'red'))
+        sys.exit(2)
     return args
 
 def main():
@@ -464,13 +518,19 @@ def main():
         else:
             LOG.setLevel(logging.WARN)
         # check how the user is going to supply info to this program, this is required
+        # setup dictionary that contains all pertinant click info
+        config = {}
         if options.interactive:
             print(colored('Use \\h for available values - there is a delay with using help', 'red'))
-            _ = get_inputs_from_user(options.expinfo, options.control, options.click)
+            config = get_inputs_from_user(options)
         elif options.file_input:
-            _ = parse_input_file(options.file_input)
+            config = parse_input_file(options.file_input)
         elif options.cmdline:
-            _ = set_cmdline_opts(options.cmdline)
+            config = set_cmdline_opts(options.cmdline)
+
+        # main execution: create the aal file, and run_magi with the click settings
+        aal_file = create_template_aal(config)
+        run_magi(aal_file, config['experiment'], config['project'], config['control_server'])
     else:
         print(colored('unable to run, must be on run on an isi.deterlab.net host', 'red'))
         print(colored('if this host is on deterlab, make sure the FQDN is the hostname', 'red'))

@@ -4,6 +4,15 @@
 # quotes (", ') are optional, can be used by programmer for ease
 # colon : is a special operator, can only be used with key: value
 
+# system settings
+
+click_server: vrouter # hosts running click, fqdn added to hostname
+control_server: control # main control server for experiment
+project: edgect # deter project name
+experiment: 2e-something # deter experiment name
+
+# click settings
+
 msg: "example_function" # this is used for debugging purpose
 element: 'link_1_2_bw' # which click element you want to select
 key: latency # the click attribute for the element to be changed
@@ -12,9 +21,14 @@ value: 10ms # the value, with correct suffix (Mbps, ms, etc)
 # no additional values will be read, if duplicate "keys"
 # are provided, the last value will be used
 
+# okay to leave out click_server, and control_server
+# if project or experiment are not here, and are not provided
+# through -p and -e command line options, user will be prompted.
 
 
 # simple version
+project: edgect
+experiment: simple
 msg: change link_1_2 lantency
 element: link_1_2_bw
 key: latency
