@@ -9,7 +9,7 @@ groups:
 agents:
   ClickAgent:
     group: click_group
-    path: /users/lthurlow/magi_modules/clickControl/
+    path: /proj/edgect/magi/modules/clickControl/
     execargs: {}
 
 # updateClickConfig(self, msg, node, key, value)
