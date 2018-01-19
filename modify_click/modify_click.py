@@ -3,7 +3,6 @@
 import sys
 
 PY_VERSION = int(sys.version_info[0])
-print(PY_VERSION)
 if PY_VERSION == 2:
     import py2_wrapper
     py2_wrapper.main()

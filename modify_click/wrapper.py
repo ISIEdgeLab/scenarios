@@ -1,3 +1,6 @@
+
+__version__ = '0.0.1'
+
 import argparse
 import os
 import logging
@@ -36,7 +39,6 @@ except ImportError:
         exit(3)
     from termcolor import colored
 
-VERSION = '0.0.1'
 
 LOG_CONFIG = {
     'version': 1,
@@ -556,8 +558,11 @@ def parse_options() -> Dict:
                         default=False,
                         help='print out debug logs')
 
-    parser.add_argument('--version', action='version', version='%(prog)s %(VERSION)s')
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s {ver}'.format(ver=__version__))
     args = parser.parse_args()
+    if args.version:
+        exit(0)
     if args.ignore and args.interactive:
         parser.print_help()
         sys.stderr.write(colored('ERROR: cannot use -i and -y in conjunction\n', 'red'))
@@ -566,10 +571,10 @@ def parse_options() -> Dict:
 
 # pylint: disable=too-many-branches
 def main():
+    options = parse_options()
     # dont allow hosts not on deterlab to attempt to run this script
     host_on_isi, script_run_from = verified_host()
     if host_on_isi:
-        options = parse_options()
         # set the logger based on verbosity
         if options.verbose:
             LOG.setLevel(logging.DEBUG)
@@ -624,7 +629,5 @@ def main():
     else:
         print(colored('unable to run, must be on run on an isi.deterlab.net host', 'red'))
         print(colored('if this host is on deterlab, make sure the FQDN is the hostname', 'red'))
-
-
 if __name__ == '__main__':
     main()
