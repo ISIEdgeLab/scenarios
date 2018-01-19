@@ -53,9 +53,13 @@ def fill_template(file_name, click_config):
     revised_contents = []
     change_me_tag = u"_REPLACE"
     msg_str = u"MSG"
-    ele_str = u"NODE"
     key_str = u"KEY"
     val_str = u"VALUE"
+    # special case, rather than use node interally, we will use element, as it is a
+    # click element, but with external code, such as the aal file, it is refered to as
+    # a node.  So here we manually translate.
+    node_str = u"NODE"
+    ele_str = u"element"
     # read template
     with open(file_name, u'r') as file_read:
         for line in file_read:
@@ -67,8 +71,8 @@ def fill_template(file_name, click_config):
         if change_me_tag in line:
             if msg_str in line:
                 updated_line = line.replace(msg_str+change_me_tag, click_config[msg_str.lower()])
-            elif ele_str in line:
-                updated_line = line.replace(ele_str+change_me_tag, click_config['element'])
+            elif node_str in line:
+                updated_line = line.replace(node_str+change_me_tag, click_config[ele_str])
             elif key_str in line:
                 updated_line = line.replace(key_str+change_me_tag, click_config[key_str.lower()])
             elif val_str in line:
@@ -95,7 +99,7 @@ def create_template_aal(click_config, residual = True):
     else:
         prefix_path = os.environ[u'PWD']
         if os.path.isfile(prefix_path+u'/'+base_template):
-            temp_file = open(prefix_path+'/u'+file_ptr, u'wb')
+            temp_file = open(prefix_path+u'/'+file_ptr, u'wb')
         else:
             raise IOError(u'File does not exist: {path}'.format(path=base_template))
 
@@ -109,16 +113,25 @@ def create_template_aal(click_config, residual = True):
     # environment variable pwd does not resolve the sym links
     return temp_file.name
 
+# because this runs on users, but magi runs on control, we need to copy our generated aal
+# file from the localhost to the control host, perferably in the same the location.
 def scp_file_to_control(aal_file, exp, proj, control):
-    remote_proc = Popen('scp {} {}.{}.{}.isi.deterlab.net:{}'.format(aal_file, control, exp, proj, aal_file),
-      stderr=PIPE, stdout=PIPE, shell=True
+    # pylint: disable=bad-continuation
+    remote_proc = Popen(u'scp {aal} {control}.{exp}.{proj}.isi.deterlab.net:{aal}'\
+        .format(
+            aal=aal_file,
+            control=control,
+            exp=exp,
+            proj=proj
+        ),
+        stderr=PIPE, stdout=PIPE, shell=True
     )
     stdout, stderr = remote_proc.communicate()
-    print(stdout)
-    print(stderr)
+    LOG.debug(stdout)
+    LOG.debug(stderr)
     if stderr:
-        return stderr
-
+        return False
+    return True
 
 # ssh into the vrouter server, find the logs, and do best to parse the
 # logs for the current run
@@ -402,19 +415,19 @@ def verified_host():
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
     if stderr:
-        return False
+        return (False, u'')
     if stdout:
         try:
             stdout = stdout.decode(u'utf-8').strip()
             hostname = stdout.split(u'.')
             if u'.'.join(hostname[-3:]) == u'isi.deterlab.net':
-                return True
+                return (True, hostname[0])
             else:
                 LOG.error(u'invalid hostname: %s - %s', stdout, hostname)
         except IndexError:
             print u'unable to parse hostname, is the hostname set? Is it an ISI node?'
             LOG.error(u'invalid hostname: %s', stdout)
-    return False
+    return (False, u'')
 
 # TODO: add checking, or make options better
 def set_cmdline_opts(click_info, project = None, experiment = None):
@@ -522,7 +535,8 @@ def parse_options():
 
 def main():
     # dont allow hosts not on deterlab to attempt to run this script
-    if verified_host():
+    host_on_isi, script_run_from = verified_host()
+    if host_on_isi:
         options = parse_options()
         # set the logger based on verbosity
         if options.verbose:
@@ -557,7 +571,11 @@ def main():
 
         # main execution: create the aal file, and run_magi with the click settings
         aal_file = create_template_aal(config, residual=True)
-        scp_file_to_control(aal_file,config[u'experiment'], config[u'project'], config[u'control_server'])
+        # if this script is run from the control_server, no need to scp it over
+        if script_run_from != config[u'control_server']:
+            _ = scp_file_to_control(
+                aal_file, config[u'experiment'], config[u'project'], config[u'control_server']
+            )
         run_magi(aal_file, config[u'experiment'], config[u'project'], config[u'control_server'])
     else:
         print colored(u'unable to run, must be on run on an isi.deterlab.net host', u'red')

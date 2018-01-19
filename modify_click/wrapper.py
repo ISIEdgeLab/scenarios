@@ -52,9 +52,13 @@ def fill_template(file_name: str, click_config: Dict) -> None:
     revised_contents = []
     change_me_tag = "_REPLACE"
     msg_str = "MSG"
-    ele_str = "ELEMENT"
     key_str = "KEY"
     val_str = "VALUE"
+    # special case, rather than use node interally, we will use element, as it is a
+    # click element, but with external code, such as the aal file, it is refered to as
+    # a node.  So here we manually translate.
+    node_str = "NODE"
+    ele_str = "element"
     # read template
     with open(file_name, 'r') as file_read:
         for line in file_read:
@@ -66,8 +70,8 @@ def fill_template(file_name: str, click_config: Dict) -> None:
         if change_me_tag in line:
             if msg_str in line:
                 updated_line = line.replace(msg_str+change_me_tag, click_config[msg_str.lower()])
-            elif ele_str in line:
-                updated_line = line.replace(ele_str+change_me_tag, click_config[ele_str.lower()])
+            elif node_str in line:
+                updated_line = line.replace(node_str+change_me_tag, click_config[ele_str])
             elif key_str in line:
                 updated_line = line.replace(key_str+change_me_tag, click_config[key_str.lower()])
             elif val_str in line:
@@ -85,15 +89,16 @@ def fill_template(file_name: str, click_config: Dict) -> None:
 def create_template_aal(click_config: Dict, residual: bool = True) -> str:
     LOG.debug('creating template')
     file_ptr = 'generated_click_template.aal'
-    base_template = './click_template.aal'
+    base_template = 'click_template.aal'
     temp_file = ''
     if residual:
         # create our temporary aal file
         temp_name = tempfile.gettempdir()+'/'+file_ptr
         temp_file = open(temp_name, 'wb')
     else:
-        if os.path.isfile(base_template):
-            temp_file = open(file_ptr, 'wb')
+        prefix_path = os.environ['PWD']
+        if os.path.isfile(prefix_path+'/'+base_template):
+            temp_file = open(prefix_path+'/'+file_ptr, u'wb')
         else:
             raise IOError('File does not exist: {path}'.format(path=base_template))
 
@@ -105,8 +110,27 @@ def create_template_aal(click_config: Dict, residual: bool = True) -> str:
     # add the absolute path to name as it will run remotely from home dir
     # os.getcwd unfortunately resolves symbolic links which differ from users to control
     # environment variable pwd does not resolve the sym links
-    prefix_path = os.environ['PWD']
-    return prefix_path+'/'+temp_file.name
+    return temp_file.name
+
+# because this runs on users, but magi runs on control, we need to copy our generated aal
+# file from the localhost to the control host, perferably in the same the location.
+def scp_file_to_control(aal_file: str, exp: str, proj: str, control: str) -> bool:
+    # pylint: disable=bad-continuation
+    remote_proc = Popen('scp {aal} {control}.{exp}.{proj}.isi.deterlab.net:{aal}'\
+        .format(
+            aal=aal_file,
+            control=control,
+            exp=exp,
+            proj=proj
+        ),
+        stderr=PIPE, stdout=PIPE, shell=True
+    )
+    stdout, stderr = remote_proc.communicate()
+    LOG.debug(stdout)
+    LOG.debug(stderr)
+    if stderr:
+        return False
+    return True
 
 # ssh into the vrouter server, find the logs, and do best to parse the
 # logs for the current run
@@ -385,24 +409,24 @@ def get_inputs_from_user(options: argparse = None) -> Dict:
         sys.exit(2)
     return inputs
 
-def verified_host() -> bool:
+def verified_host() -> Tuple[bool, str]:
     remote_cmd = 'hostname'
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
     if stderr:
-        return False
+        return (False, '')
     if stdout:
         try:
             stdout = stdout.decode('utf-8').strip()
             hostname = stdout.split('.')
             if '.'.join(hostname[-3:]) == 'isi.deterlab.net':
-                return True
+                return (True, hostname[0])
             else:
                 LOG.error('invalid hostname: %s - %s', stdout, hostname)
         except IndexError:
             print('unable to parse hostname, is the hostname set? Is it an ISI node?')
             LOG.error('invalid hostname: %s', stdout)
-    return False
+    return (False, '')
 
 # TODO: add checking, or make options better
 def set_cmdline_opts(click_info: List[str], project: str = None, experiment: str = None):
@@ -510,7 +534,8 @@ def parse_options() -> Dict:
 
 def main():
     # dont allow hosts not on deterlab to attempt to run this script
-    if verified_host():
+    host_on_isi, script_run_from = verified_host()
+    if host_on_isi:
         options = parse_options()
         # set the logger based on verbosity
         if options.verbose:
@@ -544,7 +569,12 @@ def main():
         LOG.debug('config with cmd line options: %s', config)
 
         # main execution: create the aal file, and run_magi with the click settings
-        aal_file = create_template_aal(config)
+        aal_file = create_template_aal(config, residual=True)
+        # if this script is run from the control_server, no need to scp it over
+        if script_run_from != config['control_server']:
+            _ = scp_file_to_control(
+                aal_file, config['experiment'], config['project'], config['control_server']
+            )
         run_magi(aal_file, config['experiment'], config['project'], config['control_server'])
     else:
         print(colored('unable to run, must be on run on an isi.deterlab.net host', 'red'))
