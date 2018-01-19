@@ -1,0 +1,9 @@
+language: python
+python:
+  - "2.7"
+  - "3.6"
+install:
+  pip install pylint==1.8.1
+  pip install -r modify_click/requirements.txt
+script:
+  pylint --rcfile=modify_click/.pylintrc modify_click/modify_click.py --disable=fixme
