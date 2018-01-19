@@ -561,8 +561,6 @@ def parse_options() -> Dict:
     parser.add_argument('--version', action='version',
                         version='%(prog)s {ver}'.format(ver=__version__))
     args = parser.parse_args()
-    if args.version:
-        exit(0)
     if args.ignore and args.interactive:
         parser.print_help()
         sys.stderr.write(colored('ERROR: cannot use -i and -y in conjunction\n', 'red'))
