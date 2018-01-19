@@ -7,9 +7,37 @@ import logging.config
 import sys
 import tempfile
 from subprocess import PIPE, Popen
-from typing import Dict, List, Tuple
-from termcolor import colored
 from io import open
+
+# on control server, cannot connect outward, so we need to install the packages
+# from source/binary ourself
+try:
+    from typing import Dict, List, Tuple
+except ImportError:
+    GCMD = u'pip install --user packages/typing-3.6.2-py2-none-any.whl'
+    GREMOTE_PROC = Popen(GCMD, stderr=PIPE, stdout=PIPE, shell=True)
+    GSTDOUT, GSTDERR = GREMOTE_PROC.communicate()
+    if GSTDERR:
+        print u'Unable to install typing package locally, see error below:\n'
+        print GSTDERR
+        exit(3)
+    from typing import Dict, List, Tuple
+try:
+    from termcolor import colored
+except ImportError:
+    GCWD = os.getcwdu()
+    GCMD = u'tar -xzvf termcolor-1.1.0.tar.gz && '\
+        u'cd termcolor-1.1.0 && '\
+        u'python setup.py build && '\
+        u'python setup.py install --user'
+    GREMOTE_PROC = Popen(GCMD, stderr=PIPE, stdout=PIPE, shell=True)
+    GSTDOUT, GSTDERR = GREMOTE_PROC.communicate()
+    os.chdir(GCWD)
+    if GSTDERR:
+        print u'Unable to install typing package locally, see error below:\n'
+        print GSTDERR
+        exit(3)
+    from termcolor import colored
 
 VERSION = u'0.0.1'
 
