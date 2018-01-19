@@ -519,6 +519,7 @@ def main():
             LOG.setLevel(logging.WARN)
         # check how the user is going to supply info to this program, this is required
         # setup dictionary that contains all pertinant click info
+        LOG.debug(options)
         config = {}
         if options.interactive:
             print(colored('Use \\h for available values - there is a delay with using help', 'red'))
@@ -527,6 +528,20 @@ def main():
             config = parse_input_file(options.file_input)
         elif options.cmdline:
             config = set_cmdline_opts(options.cmdline)
+
+        LOG.debug('config file after inputs: %s', config)
+
+        if options.experiment:
+            config['experiment'] = options.experiment
+            LOG.debug()
+        if options.project:
+            config['project'] = options.project
+        if options.control_server:
+            config['control_server'] = options.control_server
+        if options.click_server:
+            config['click_server'] = options.click_server
+
+        LOG.debug('config with cmd line options: %s', config)
 
         # main execution: create the aal file, and run_magi with the click settings
         aal_file = create_template_aal(config)

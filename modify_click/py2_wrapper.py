@@ -1,4 +1,3 @@
-# 3to2 tool to conver wrapper.py to this
 from __future__ import with_statement
 from __future__ import absolute_import
 import argparse
@@ -8,6 +7,7 @@ import logging.config
 import sys
 import tempfile
 from subprocess import PIPE, Popen
+from typing import Dict, List, Tuple
 from termcolor import colored
 from io import open
 
@@ -40,9 +40,6 @@ logging.config.dictConfig(LOG_CONFIG)
 LOG = logging.getLogger(__name__)
 
 class ParseError(Exception):
-    pass
-
-def grep_magi_logs():
     pass
 
 def print_notice():
@@ -93,7 +90,7 @@ def create_template_aal(click_config, residual = True):
     temp_file = u''
     if residual:
         # create our temporary aal file
-        temp_name = tempfile.gettempdir()+'/'+file_ptr
+        temp_name = tempfile.gettempdir()+u'/'+file_ptr
         temp_file = open(temp_name, u'wb')
     else:
         if os.path.isfile(base_template):
@@ -109,23 +106,23 @@ def create_template_aal(click_config, residual = True):
     # add the absolute path to name as it will run remotely from home dir
     # os.getcwd unfortunately resolves symbolic links which differ from users to control
     # environment variable pwd does not resolve the sym links
-    prefix_path = os.environ['PWD']
-    return prefix_path+'/'+temp_file.name
+    prefix_path = os.environ[u'PWD']
+    return prefix_path+u'/'+temp_file.name
 
-# FIXME: hardcoded vrouter, need a way to specify click router, default to vrouter
 # ssh into the vrouter server, find the logs, and do best to parse the
 # logs for the current run
 # yolo - will run magi on smaller nodes tomorrow to verifying logging works
-def check_magi_logs(keyword, experiment_id, project_id):
+def check_magi_logs(keyword, experiment_id, project_id, server):
     # these logs only exist when experiment swapped in, where magi running and mounted
     magi_log_location = u'/var/log/magi/logs/daemon.log'
     # more efficient mechanisms... make an assumption about what magi is spewing to logs
     # using tail -n X, here we make no assumption, just hope magi logs are not HUGE
-    remote_cmd = u'ssh vrouter.{exp}.{proj}.isi.deterlab.net ' \
+    remote_cmd = u'ssh {vrouter}.{exp}.{proj}.isi.deterlab.net ' \
         u'cat {magi_logs}'.format(
             exp=experiment_id,
             proj=project_id,
             magi_logs=magi_log_location,
+            vrouter=server,
         )
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
@@ -139,33 +136,34 @@ def check_magi_logs(keyword, experiment_id, project_id):
     last_twenty_lines = []
     count = 0
     # for line in reversed(list(open(magi_log_location, 'rb'))):
-    for line in stdout.decode('utf-8').strip().split('\n')[::-1]:
+    for line in stdout.decode(u'utf-8').strip().split(u'\n')[::-1]:
         if keyword.upper() in line:
             # this is a hack - better methods, but should be quick
             # now lets parse the line for user friendliness
-            pretty = line[line.index('['):]
-            pretty_list = sorted([str(x.replace("'",'')).strip() for x in pretty[1:-1].split(',')])
-            return '\n'.join(pretty_list)+'\n'
+            pretty = line[line.index(u'['):]
+            pretty_list = sorted([unicode(x.replace(u"'", u'')).strip() for x in pretty[1:-1].split(u',')])
+            return u'\n'.join(pretty_list)+u'\n'
         if count < 20:
             last_twenty_lines.append(line)
         count += 1
     raise ParseError(
-        u'unable to find "{kw}" in magi logs.  Dump of last 20 lines of logs:\n\n{logs}'.format(
+        u'unable to find "{kw}" in magi logs.  Dump of last 20 lines of logs: {logs}\n\n'.format(
             kw=keyword,
-            logs='\n'.join(last_twenty_lines[::-1]),
+            logs=u'\n'.join(last_twenty_lines[::-1]),
         )
     )
 
-# FIXME: same thing for hardcoded server
 # run magi script passing in the templated aal file for click to parse
 # it should return a tuple (bool, str) where bool is wether run succeeded
 # the str being the logs assosciated with the run.
-def run_magi(aal_file, experiment_id, project_id):
-    remote_cmd = u'ssh control.{exp}.{proj}.isi.deterlab.net ' \
+def run_magi(aal_file, experiment_id, project_id,
+             server = u'control'):
+    remote_cmd = u'ssh {control}.{exp}.{proj}.isi.deterlab.net ' \
         u'sudo magi_orchestrator.py -c localhost -f {aal}'.format(
             exp=experiment_id,
             proj=project_id,
             aal=aal_file,
+            control=server,
         )
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
@@ -181,18 +179,19 @@ def print_projects():
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
     if not stderr:
-        print('\n'.join([x.split('/')[-1] for x in stdout.split('\n') if x]))
+        print u'\n'.join([x.split(u'/')[-1] for x in stdout.split(u'\n') if x])
     else:
         print u'Unable to find any valid projects -- '
         LOG.error(stderr)
 
 # help the user find which experiments are apart of the selected project
 def print_experiments(project_id):
+    # if this should be defined by -user (only ones the user created, or all group projects
     remote_cmd = u'find /proj/{project}/exp/ -maxdepth 1 -group {project}'.format(project=project_id)
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
     if not stderr:
-        print('\n'.join(sorted([x.split('/')[-1] for x in stdout.split('\n') if x])))
+        print u'\n'.join(sorted([x.split(u'/')[-1] for x in stdout.split(u'\n') if x]))
     else:
         print u'Unable to find any valid experiments -- '
         LOG.error(stderr)
@@ -203,23 +202,24 @@ def print_experiments(project_id):
 # we care about.
 # a bit of logic needs to go into this to infer which of the previous incorrect instructions
 # correlates to which run
-def print_elements(experiment_id, project_id):
+def print_elements(experiment_id, project_id,
+                   control_server, click_server):
     bogus_dict = {
         u'msg': u'print_elements',
         u'element': u'aaaaaaaaaaaaaaa_1_aaaaaaaaaaaaaaaaa',
         u'key': u'garbage',
         u'value': u'recycling',
     }
-    # TODO: (residual=False) this is just for testing
-    aal = create_template_aal(bogus_dict, residual=False)
+    aal = create_template_aal(bogus_dict)
     print_notice()
-    run_magi(aal, experiment_id, project_id)
-    element_logs = check_magi_logs(u'element', experiment_id, project_id)
+    run_magi(aal, experiment_id, project_id, server=control_server)
+    element_logs = check_magi_logs(u'element', experiment_id, project_id, click_server)
     # some function here to format logs from error output to human readable
     print element_logs
 
 # see comments for print_elements on issues with implement
-def print_keys(click_element, experiment_id, project_id):
+def print_keys(click_element, experiment_id, project_id,
+               control_server, click_server):
     bogus_dict = {
         u'msg': u'print_keys',
         u'element': click_element,
@@ -228,18 +228,18 @@ def print_keys(click_element, experiment_id, project_id):
     }
     aal = create_template_aal(bogus_dict)
     print_notice()
-    run_magi(aal, experiment_id, project_id)
-    key_logs = check_magi_logs(u'key', experiment_id, project_id)
+    run_magi(aal, experiment_id, project_id, server=control_server)
+    key_logs = check_magi_logs(u'key', experiment_id, project_id, click_server)
     # some function here to format logs from error output to human readable
     print key_logs
 
 
-def get_click_element(experiment_id, project_id):
+def get_click_element(experiment_id, project_id, control, click):
     cursor = colored(u'(element) > ', u'green')
     ask_click = u'Click Element:\n'
     click_element = raw_input(colored(u'{click}{cursor}'.format(cursor=cursor, click=ask_click), u'red'))
     while click_element == ur'\h':
-        print_elements(experiment_id, project_id)
+        print_elements(experiment_id, project_id, control, click)
         click_element = raw_input(u'{click}{cursor}'.format(cursor=cursor, click=ask_click))
     # probably not the best way, but if yes Yes y or Y, accept the input
     accept = raw_input(u'set click_element to {element}? ([y]/n) '.format(element=click_element))
@@ -248,16 +248,17 @@ def get_click_element(experiment_id, project_id):
     sys.stdout.flush()
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
-        return get_click_element(experiment_id, project_id)
+        return get_click_element(experiment_id, project_id, control, click)
     LOG.debug(u'element set to "%s"', click_element)
     return click_element
 
-def get_key_for_element(element, experiment_id, project_id):
+def get_key_for_element(element, experiment_id, project_id,
+                        control, click):
     cursor = colored(u'(key) > ', u'green')
     ask_key = u'Element Key (to change):\n'
     element_key = raw_input(colored(u'{ekey}{cursor}'.format(cursor=cursor, ekey=ask_key), u'red'))
     while element_key == ur'\h':
-        print_keys(element, experiment_id, project_id)
+        print_keys(element, experiment_id, project_id, control, click)
         element_key = raw_input(u'{ekey}{cursor}'.format(cursor=cursor, ekey=ask_key))
     # probably not the best way, but if yes Yes y or Y, accept the input
     accept = raw_input(u'set key to {key}? ([y]/n) '.format(key=element_key))
@@ -266,7 +267,7 @@ def get_key_for_element(element, experiment_id, project_id):
     sys.stdout.flush()
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
-        return get_key_for_element(element, experiment_id, project_id)
+        return get_key_for_element(element, experiment_id, project_id, control, click)
     LOG.debug(u'key set to "%s"', element_key)
     return element_key
 
@@ -323,19 +324,56 @@ def get_project_id():
     LOG.debug(u'project set to "%s"', proj_value)
     return proj_value
 
-def get_inputs_from_user(expinfo):
+def get_server(server_type):
+    default = u'vrouter' if server_type == u'click' else u'control'
+    cursor = colored(u'({stype}_server) [default={dtype}] > '\
+        .format(stype=server_type, dtype=default), u'green')
+    ask_type = u'{stype} server hostname? \n'.format(stype=server_type)
+    response = raw_input(colored(u'{stype}{cursor}'.format(cursor=cursor, stype=ask_type), u'red'))
+    # probably not the best way, but if yes Yes y or Y, accept the input
+    accept = raw_input(u'{stype} server hostname is {value}? ([y]/n) '\
+        .format(value=response if response else default, stype=server_type))
+    # shouldnt reuse variable with different types...
+    accept = True if not accept or accept[0].lower() == u'y' else False
+    sys.stdout.flush()
+    # super ghetto, but just recurse for no reason until they figure out what they want
+    if not accept:
+        return get_server(server_type)
+    LOG.debug(u'{stype} server hostname set to "%s"', response)
+    return response
+
+def get_inputs_from_user(options = None):
     inputs = {}
     try:
-        if expinfo:
-            print u'project : {}, experiment: {} (cmdline)'.format(expinfo[0], expinfo[1])
-            project = expinfo[0]
-            experiment = expinfo[1]
+        if not options: # about 99% sure this will throw, but yolo
+            options.project = None
+            options.experiment = None
+            options.click_server = None
+            options.control_server = None
+        if options.project:
+            project = options.project
         else:
             project = get_project_id()
+        if options.experiment:
+            experiment = options.experiment
+        else:
             experiment = get_experiment_id(project)
-        click_element = get_click_element(experiment, project)
-        element_key = get_key_for_element(click_element, experiment, project)
+
+        if options.click_server:
+            click = options.click_server
+        else:
+            click = get_server(u'click')
+        if options.control_server:
+            control = options.control_server
+        else:
+            control = get_server(u'control')
+        click_element = get_click_element(experiment, project, control, click)
+        element_key = get_key_for_element(click_element, experiment, project, control, click)
         key_value = get_value_for_key(element_key)
+        inputs[u'control_server'] = control
+        inputs[u'click_server'] = click
+        inputs[u'project'] = project
+        inputs[u'experiment'] = experiment
         inputs[u'msg'] = u'user_inputs'
         inputs[u'element'] = click_element
         inputs[u'key'] = element_key
@@ -367,12 +405,16 @@ def verified_host():
     return False
 
 # TODO: add checking, or make options better
-def set_cmdline_opts(options):
+def set_cmdline_opts(click_info, project = None, experiment = None):
     input_dict = {
-        'msg': options[0],
-        'element': options[1],
-        'key': options[2],
-        'value': options[3],
+        u'click_server': None,
+        u'control_server': None,
+        u'project': project,
+        u'experiment': experiment,
+        u'msg': click_info[0],
+        u'element': click_info[1],
+        u'key': click_info[2],
+        u'value': click_info[3],
     }
     LOG.debug(input_dict)
     return input_dict
@@ -380,6 +422,10 @@ def set_cmdline_opts(options):
 def parse_input_file(path):
     comment = u'#'
     input_dict = {
+        u'click_server': None,
+        u'control_server': None,
+        u'project': None,
+        u'experiment': None,
         u'msg': None,
         u'element': None,
         u'key': None,
@@ -412,6 +458,7 @@ def parse_options():
     parser = argparse.ArgumentParser(
         description=u'Dynamically modify the click modular router.',
         add_help=True,
+        allow_abbrev=True,
         epilog=u'If you need assistance, or find any bugs, please report them to lincoln@isi.edu',
         # 'examples:\n\t%(prog)s -f file_input_example.txt\n' \
         # '\t%(prog)s -i\n' \
@@ -430,19 +477,36 @@ def parse_options():
                             default=False, metavar=(u'MSG', u'ELEMENT', u'KEY', u'VALUE'),
                             help=u'provide msg, element, key, and value through cmd options')
 
-    # unlike deter, we will parse -e pid, eid means nargs = '+', and check if valid later
-    # can use with -i and -c, and shortcut the process
-    parser.add_argument(u'-e', u'--expinfo', dest=u'expinfo', action=u'store', nargs=2,
-                        default=False, metavar=(u'PROJECT', u'EXPERIMENT'),
-                        help=u'give deterlab project and experiment info, cannot be used with -f')
+    parser.add_argument(u'-e', u'--experiment', dest=u'experiment', action=u'store',
+                        default=False, metavar=(u'EXPERIMENT'),
+                        help=u'give deterlab experiment identifier')
+
+    parser.add_argument(u'-p', u'--project', dest=u'project', action=u'store',
+                        default=False, metavar=(u'PROJECT'),
+                        help=u'give deterlab project identifier')
+
+    parser.add_argument(u'-y', u'--yes', dest=u'ignore', action=u'store_true',
+                        default=False,
+                        help=u'dont prompt user for anything, cannot be used with -i')
+
+    parser.add_argument(u'--control', dest=u'control_server', action=u'store',
+                        default=False, metavar=(u'CONTROL HOSTNAME'),
+                        help=u'specify the control node used in the experiment')
+
+    parser.add_argument(u'--click', dest=u'click_server', action=u'store',
+                        default=False, metavar=(u'CLICK HOSTNAME'),
+                        help=u'specify the node with click installed on it')
 
     parser.add_argument(u'-v', u'--verbose', dest=u'verbose', action=u'store_true',
                         default=False,
                         help=u'print out debug logs')
 
     parser.add_argument(u'--version', action=u'version', version=u'%(prog)s %(VERSION)s')
-
     args = parser.parse_args()
+    if args.ignore and args.interactive:
+        parser.print_help()
+        sys.stderr.write(colored(u'ERROR: cannot use -i and -y in conjunction\n', u'red'))
+        sys.exit(2)
     return args
 
 def main():
@@ -455,13 +519,34 @@ def main():
         else:
             LOG.setLevel(logging.WARN)
         # check how the user is going to supply info to this program, this is required
+        # setup dictionary that contains all pertinant click info
+        LOG.debug(options)
+        config = {}
         if options.interactive:
             print colored(u'Use \\h for available values - there is a delay with using help', u'red')
-            _ = get_inputs_from_user(options.expinfo)
+            config = get_inputs_from_user(options)
         elif options.file_input:
-            _ = parse_input_file(options.file_input)
+            config = parse_input_file(options.file_input)
         elif options.cmdline:
-            _ = set_cmdline_opts(options.cmdline)
+            config = set_cmdline_opts(options.cmdline)
+
+        LOG.debug(u'config file after inputs: %s', config)
+
+        if options.experiment:
+            config[u'experiment'] = options.experiment
+            LOG.debug()
+        if options.project:
+            config[u'project'] = options.project
+        if options.control_server:
+            config[u'control_server'] = options.control_server
+        if options.click_server:
+            config[u'click_server'] = options.click_server
+
+        LOG.debug(u'config with cmd line options: %s', config)
+
+        # main execution: create the aal file, and run_magi with the click settings
+        aal_file = create_template_aal(config)
+        run_magi(aal_file, config[u'experiment'], config[u'project'], config[u'control_server'])
     else:
         print colored(u'unable to run, must be on run on an isi.deterlab.net host', u'red')
         print colored(u'if this host is on deterlab, make sure the FQDN is the hostname', u'red')
