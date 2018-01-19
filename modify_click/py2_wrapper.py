@@ -53,7 +53,7 @@ def fill_template(file_name, click_config):
     revised_contents = []
     change_me_tag = u"_REPLACE"
     msg_str = u"MSG"
-    ele_str = u"ELEMENT"
+    ele_str = u"NODE"
     key_str = u"KEY"
     val_str = u"VALUE"
     # read template
@@ -68,7 +68,7 @@ def fill_template(file_name, click_config):
             if msg_str in line:
                 updated_line = line.replace(msg_str+change_me_tag, click_config[msg_str.lower()])
             elif ele_str in line:
-                updated_line = line.replace(ele_str+change_me_tag, click_config[ele_str.lower()])
+                updated_line = line.replace(ele_str+change_me_tag, click_config['element'])
             elif key_str in line:
                 updated_line = line.replace(key_str+change_me_tag, click_config[key_str.lower()])
             elif val_str in line:
@@ -86,15 +86,16 @@ def fill_template(file_name, click_config):
 def create_template_aal(click_config, residual = True):
     LOG.debug(u'creating template')
     file_ptr = u'generated_click_template.aal'
-    base_template = u'./click_template.aal'
+    base_template = u'click_template.aal'
     temp_file = u''
     if residual:
         # create our temporary aal file
         temp_name = tempfile.gettempdir()+u'/'+file_ptr
         temp_file = open(temp_name, u'wb')
     else:
-        if os.path.isfile(base_template):
-            temp_file = open(file_ptr, u'wb')
+        prefix_path = os.environ[u'PWD']
+        if os.path.isfile(prefix_path+u'/'+base_template):
+            temp_file = open(prefix_path+'/u'+file_ptr, u'wb')
         else:
             raise IOError(u'File does not exist: {path}'.format(path=base_template))
 
@@ -106,8 +107,18 @@ def create_template_aal(click_config, residual = True):
     # add the absolute path to name as it will run remotely from home dir
     # os.getcwd unfortunately resolves symbolic links which differ from users to control
     # environment variable pwd does not resolve the sym links
-    prefix_path = os.environ[u'PWD']
-    return prefix_path+u'/'+temp_file.name
+    return temp_file.name
+
+def scp_file_to_control(aal_file, exp, proj, control):
+    remote_proc = Popen('scp {} {}.{}.{}.isi.deterlab.net:{}'.format(aal_file, control, exp, proj, aal_file),
+      stderr=PIPE, stdout=PIPE, shell=True
+    )
+    stdout, stderr = remote_proc.communicate()
+    print(stdout)
+    print(stderr)
+    if stderr:
+        return stderr
+
 
 # ssh into the vrouter server, find the logs, and do best to parse the
 # logs for the current run
@@ -545,7 +556,8 @@ def main():
         LOG.debug(u'config with cmd line options: %s', config)
 
         # main execution: create the aal file, and run_magi with the click settings
-        aal_file = create_template_aal(config)
+        aal_file = create_template_aal(config, residual=True)
+        scp_file_to_control(aal_file,config[u'experiment'], config[u'project'], config[u'control_server'])
         run_magi(aal_file, config[u'experiment'], config[u'project'], config[u'control_server'])
     else:
         print colored(u'unable to run, must be on run on an isi.deterlab.net host', u'red')
