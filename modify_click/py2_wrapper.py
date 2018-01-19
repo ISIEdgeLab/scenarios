@@ -458,7 +458,6 @@ def parse_options():
     parser = argparse.ArgumentParser(
         description=u'Dynamically modify the click modular router.',
         add_help=True,
-        allow_abbrev=True,
         epilog=u'If you need assistance, or find any bugs, please report them to lincoln@isi.edu',
         # 'examples:\n\t%(prog)s -f file_input_example.txt\n' \
         # '\t%(prog)s -i\n' \

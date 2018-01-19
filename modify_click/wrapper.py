@@ -330,8 +330,9 @@ def get_server(server_type: str) -> str:
     ask_type = '{stype} server hostname? \n'.format(stype=server_type)
     response = input(colored('{stype}{cursor}'.format(cursor=cursor, stype=ask_type), 'red'))
     # probably not the best way, but if yes Yes y or Y, accept the input
+    response = response if response else default
     accept = input('{stype} server hostname is {value}? ([y]/n) '\
-        .format(value=response if response else default, stype=server_type))
+        .format(value=response, stype=server_type))
     # shouldnt reuse variable with different types...
     accept = True if not accept or accept[0].lower() == 'y' else False
     sys.stdout.flush()
@@ -457,7 +458,6 @@ def parse_options() -> Dict:
     parser = argparse.ArgumentParser(
         description='Dynamically modify the click modular router.',
         add_help=True,
-        allow_abbrev=True,
         epilog='If you need assistance, or find any bugs, please report them to lincoln@isi.edu',
         # 'examples:\n\t%(prog)s -f file_input_example.txt\n' \
         # '\t%(prog)s -i\n' \
