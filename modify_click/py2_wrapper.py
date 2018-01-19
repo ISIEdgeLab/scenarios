@@ -264,7 +264,10 @@ def print_elements(experiment_id, project_id,
     }
     aal = create_template_aal(bogus_dict)
     print_notice()
-    run_magi(aal, experiment_id, project_id, server=control_server)
+    success, out = run_magi(aal, experiment_id, project_id, server=control_server)
+    if not success:
+        print u'unable to run magi on control server - verify inputs are correct.  err:\n %s', out
+        exit(4)
     element_logs = check_magi_logs(u'element', experiment_id, project_id, click_server)
     # some function here to format logs from error output to human readable
     print element_logs
@@ -280,7 +283,10 @@ def print_keys(click_element, experiment_id, project_id,
     }
     aal = create_template_aal(bogus_dict)
     print_notice()
-    run_magi(aal, experiment_id, project_id, server=control_server)
+    success, out = run_magi(aal, experiment_id, project_id, server=control_server)
+    if not success:
+        print u'unable to run magi on control server - verify inputs are correct.  err:\n %s', out
+        exit(5)
     key_logs = check_magi_logs(u'key', experiment_id, project_id, click_server)
     # some function here to format logs from error output to human readable
     print key_logs
@@ -457,6 +463,7 @@ def verified_host():
             LOG.error(u'invalid hostname: %s', stdout)
     return (False, u'')
 
+# pylint: disable=fixme
 # TODO: add checking, or make options better
 def set_cmdline_opts(click_info, project = None, experiment = None):
     input_dict = {
@@ -512,9 +519,6 @@ def parse_options():
         description=u'Dynamically modify the click modular router.',
         add_help=True,
         epilog=u'If you need assistance, or find any bugs, please report them to lincoln@isi.edu',
-        # 'examples:\n\t%(prog)s -f file_input_example.txt\n' \
-        # '\t%(prog)s -i\n' \
-        # '\t%(prog)s -e simple edgect -c "add delay" link_1_2_bw latency 10ms\n\n' \
     )
     parse_mode = parser.add_mutually_exclusive_group(required=True)
     parse_mode.add_argument(u'-i', u'--interactive', dest=u'interactive', action=u'store_true',
@@ -561,6 +565,7 @@ def parse_options():
         sys.exit(2)
     return args
 
+# pylint: disable=too-many-branches
 def main():
     # dont allow hosts not on deterlab to attempt to run this script
     host_on_isi, script_run_from = verified_host()
@@ -587,13 +592,16 @@ def main():
 
         if options.experiment:
             config[u'experiment'] = options.experiment
-            LOG.debug()
+            LOG.debug(u'experiment set to: %s', config[u'experiment'])
         if options.project:
             config[u'project'] = options.project
+            LOG.debug(u'project set to: %s', config[u'project'])
         if options.control_server:
             config[u'control_server'] = options.control_server
+            LOG.debug(u'control_server set to: %s', config[u'control_server'])
         if options.click_server:
             config[u'click_server'] = options.click_server
+            LOG.debug(u'click_server set to: %s', config[u'click_server'])
 
         LOG.debug(u'config with cmd line options: %s', config)
 
@@ -604,7 +612,16 @@ def main():
             _ = scp_file_to_control(
                 aal_file, config[u'experiment'], config[u'project'], config[u'control_server']
             )
-        run_magi(aal_file, config[u'experiment'], config[u'project'], config[u'control_server'])
+        success, out = run_magi(
+            aal_file, config[u'experiment'], config[u'project'], config[u'control_server']
+        )
+        if not success:
+            print u'some failure occured!\n %s', out
+        else:
+            print u'click configured for {element} with ({key}, {value})'.format(
+                element=config[u'element'], key=config[u'key'], value=config[u'value'])
+            print u'inputs accepted - does not guarentee configuration was applied - verify!'
+            print colored(u'No errors encoutered!'), u'green'
     else:
         print colored(u'unable to run, must be on run on an isi.deterlab.net host', u'red')
         print colored(u'if this host is on deterlab, make sure the FQDN is the hostname', u'red')

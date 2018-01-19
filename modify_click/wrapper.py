@@ -263,7 +263,10 @@ def print_elements(experiment_id: str, project_id: str,
     }
     aal = create_template_aal(bogus_dict)
     print_notice()
-    run_magi(aal, experiment_id, project_id, server=control_server)
+    success, out = run_magi(aal, experiment_id, project_id, server=control_server)
+    if not success:
+        print('unable to run magi on control server - verify inputs are correct.  err:\n %s', out)
+        exit(4)
     element_logs = check_magi_logs('element', experiment_id, project_id, click_server)
     # some function here to format logs from error output to human readable
     print(element_logs)
@@ -279,7 +282,10 @@ def print_keys(click_element: str, experiment_id: str, project_id: str,
     }
     aal = create_template_aal(bogus_dict)
     print_notice()
-    run_magi(aal, experiment_id, project_id, server=control_server)
+    success, out = run_magi(aal, experiment_id, project_id, server=control_server)
+    if not success:
+        print('unable to run magi on control server - verify inputs are correct.  err:\n %s', out)
+        exit(5)
     key_logs = check_magi_logs('key', experiment_id, project_id, click_server)
     # some function here to format logs from error output to human readable
     print(key_logs)
@@ -456,6 +462,7 @@ def verified_host() -> Tuple[bool, str]:
             LOG.error('invalid hostname: %s', stdout)
     return (False, '')
 
+# pylint: disable=fixme
 # TODO: add checking, or make options better
 def set_cmdline_opts(click_info: List[str], project: str = None, experiment: str = None):
     input_dict = {
@@ -511,9 +518,6 @@ def parse_options() -> Dict:
         description='Dynamically modify the click modular router.',
         add_help=True,
         epilog='If you need assistance, or find any bugs, please report them to lincoln@isi.edu',
-        # 'examples:\n\t%(prog)s -f file_input_example.txt\n' \
-        # '\t%(prog)s -i\n' \
-        # '\t%(prog)s -e simple edgect -c "add delay" link_1_2_bw latency 10ms\n\n' \
     )
     parse_mode = parser.add_mutually_exclusive_group(required=True)
     parse_mode.add_argument('-i', '--interactive', dest='interactive', action='store_true',
@@ -560,6 +564,7 @@ def parse_options() -> Dict:
         sys.exit(2)
     return args
 
+# pylint: disable=too-many-branches
 def main():
     # dont allow hosts not on deterlab to attempt to run this script
     host_on_isi, script_run_from = verified_host()
@@ -606,7 +611,16 @@ def main():
             _ = scp_file_to_control(
                 aal_file, config['experiment'], config['project'], config['control_server']
             )
-        run_magi(aal_file, config['experiment'], config['project'], config['control_server'])
+        success, out = run_magi(
+            aal_file, config['experiment'], config['project'], config['control_server']
+        )
+        if not success:
+            print('some failure occured!\n %s', out)
+        else:
+            print('click configured for {element} with ({key}, {value})'.format(
+                element=config['element'], key=config['key'], value=config['value']))
+            print('inputs accepted - does not guarentee configuration was applied - verify!')
+            print(colored('No errors encoutered!'), 'green')
     else:
         print(colored('unable to run, must be on run on an isi.deterlab.net host', 'red'))
         print(colored('if this host is on deterlab, make sure the FQDN is the hostname', 'red'))
