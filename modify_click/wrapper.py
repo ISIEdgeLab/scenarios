@@ -339,7 +339,7 @@ def get_server(server_type: str) -> str:
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
         return get_server(server_type)
-    LOG.debug('{stype} server hostname set to "%s"', response)
+    LOG.debug('%s server hostname set to "%s"', server_type, response)
     return response
 
 def get_inputs_from_user(options: argparse = None) -> Dict:

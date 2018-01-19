@@ -331,15 +331,16 @@ def get_server(server_type):
     ask_type = u'{stype} server hostname? \n'.format(stype=server_type)
     response = raw_input(colored(u'{stype}{cursor}'.format(cursor=cursor, stype=ask_type), u'red'))
     # probably not the best way, but if yes Yes y or Y, accept the input
+    response = response if response else default
     accept = raw_input(u'{stype} server hostname is {value}? ([y]/n) '\
-        .format(value=response if response else default, stype=server_type))
+        .format(value=response, stype=server_type))
     # shouldnt reuse variable with different types...
     accept = True if not accept or accept[0].lower() == u'y' else False
     sys.stdout.flush()
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
         return get_server(server_type)
-    LOG.debug(u'{stype} server hostname set to "%s"', response)
+    LOG.debug(u'%s server hostname set to "%s"', server_type, response)
     return response
 
 def get_inputs_from_user(options = None):
