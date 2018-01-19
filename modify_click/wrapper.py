@@ -26,7 +26,8 @@ try:
     from termcolor import colored
 except ImportError:
     GCWD = os.getcwd()
-    GCMD = 'tar -xzvf termcolor-1.1.0.tar.gz && '\
+    os.chdir(GCWD+'/packages/')
+    GCMD = 'tar -xzf termcolor-1.1.0.tar.gz && '\
         'cd termcolor-1.1.0 && '\
         'python setup.py build && '\
         'python setup.py install --user'

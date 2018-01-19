@@ -29,7 +29,8 @@ try:
     from termcolor import colored
 except ImportError:
     GCWD = os.getcwdu()
-    GCMD = u'tar -xzvf termcolor-1.1.0.tar.gz && '\
+    os.chdir(GCWD+u'/packages/')
+    GCMD = u'tar -xzf termcolor-1.1.0.tar.gz && '\
         u'cd termcolor-1.1.0 && '\
         u'python setup.py build && '\
         u'python setup.py install --user'
@@ -562,8 +563,6 @@ def parse_options():
     parser.add_argument(u'--version', action=u'version',
                         version=u'%(prog)s {ver}'.format(ver=__version__))
     args = parser.parse_args()
-    if args.version:
-        exit(0)
     if args.ignore and args.interactive:
         parser.print_help()
         sys.stderr.write(colored(u'ERROR: cannot use -i and -y in conjunction\n', u'red'))
