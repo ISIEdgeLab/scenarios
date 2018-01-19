@@ -586,13 +586,16 @@ def main():
 
         if options.experiment:
             config['experiment'] = options.experiment
-            LOG.debug()
+            LOG.debug('experiment set to: %s', config['experiment'])
         if options.project:
             config['project'] = options.project
+            LOG.debug('project set to: %s', config['project'])
         if options.control_server:
             config['control_server'] = options.control_server
+            LOG.debug('control_server set to: %s', config['control_server'])
         if options.click_server:
             config['click_server'] = options.click_server
+            LOG.debug('click_server set to: %s', config['click_server'])
 
         LOG.debug('config with cmd line options: %s', config)
 
