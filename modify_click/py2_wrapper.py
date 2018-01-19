@@ -1,5 +1,9 @@
+
 from __future__ import with_statement
 from __future__ import absolute_import
+from io import open
+__version__ = u'0.0.1'
+
 import argparse
 import os
 import logging
@@ -7,7 +11,6 @@ import logging.config
 import sys
 import tempfile
 from subprocess import PIPE, Popen
-from io import open
 
 # on control server, cannot connect outward, so we need to install the packages
 # from source/binary ourself
@@ -39,7 +42,6 @@ except ImportError:
         exit(3)
     from termcolor import colored
 
-VERSION = u'0.0.1'
 
 LOG_CONFIG = {
     u'version': 1,
@@ -557,8 +559,11 @@ def parse_options():
                         default=False,
                         help=u'print out debug logs')
 
-    parser.add_argument(u'--version', action=u'version', version=u'%(prog)s %(VERSION)s')
+    parser.add_argument(u'--version', action=u'version',
+                        version=u'%(prog)s {ver}'.format(ver=__version__))
     args = parser.parse_args()
+    if args.version:
+        exit(0)
     if args.ignore and args.interactive:
         parser.print_help()
         sys.stderr.write(colored(u'ERROR: cannot use -i and -y in conjunction\n', u'red'))
@@ -567,10 +572,10 @@ def parse_options():
 
 # pylint: disable=too-many-branches
 def main():
+    options = parse_options()
     # dont allow hosts not on deterlab to attempt to run this script
     host_on_isi, script_run_from = verified_host()
     if host_on_isi:
-        options = parse_options()
         # set the logger based on verbosity
         if options.verbose:
             LOG.setLevel(logging.DEBUG)
@@ -625,7 +630,5 @@ def main():
     else:
         print colored(u'unable to run, must be on run on an isi.deterlab.net host', u'red')
         print colored(u'if this host is on deterlab, make sure the FQDN is the hostname', u'red')
-
-
 if __name__ == u'__main__':
     main()
