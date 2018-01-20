@@ -6,4 +6,4 @@ install:
   - pip install pylint==1.8.1
   - pip install -r modify_click/requirements.txt
 script:
-  - pylint --rcfile=modify_click/.pylintrc modify_click/modify_click.py --disable=fixme
+  - pylint --rcfile=modify_click/.pylintrc modify_click/* --ignore=py2_wrapper.py
