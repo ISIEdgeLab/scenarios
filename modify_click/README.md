@@ -22,7 +22,8 @@ You must give `modify_click.py` and input type to specify how you would like
 to communicate your click changes. The `-i` option will go through an
 interactive prompt with the user.
 
-```Use \h for available values - there is a delay with using help
+```
+Use \h for available values - there is a delay with using help
 Project Name?
 (project) > \h    
 edgect
@@ -31,7 +32,8 @@ Project Name?
 (project) > edgect
 Project Name is edgect? ([y]/n) y
 Experiment Identifier?
-(experiment id) >```
+(experiment id) >
+```
 
 The `-f` option instead takes in a file for input.  This allows users to
 script together their changes in a single file, or in a set of files to
