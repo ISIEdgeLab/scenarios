@@ -59,7 +59,7 @@ through click in order to generate an error log message that can be parsed
 by the wrapper code.
 
 ### Files
-
+```
 modify_click.py
  | - wrapper.py
  | - py2_wrapper.py
@@ -67,6 +67,7 @@ requirements.txt
 click_template.aal
 file_input_example.txt
 __init__.py
+```
 
 Do not modify click_template.aal file.  Okay to modify file_input_example.txt
 
