@@ -12,7 +12,7 @@ from subprocess import PIPE, Popen
 # on control server, cannot connect outward, so we need to install the packages
 # from source/binary ourself
 try:
-    from typing import Any, BinaryIO, Dict, List, Tuple
+    from typing import Any, BinaryIO, Dict, List, Tuple  # pylint: disable=unused-import
 except ImportError:
     GCMD = 'pip install --user packages/typing-3.6.2-py2-none-any.whl'
     GREMOTE_PROC = Popen(GCMD, stderr=PIPE, stdout=PIPE, shell=True)
@@ -73,9 +73,11 @@ class ParseError(Exception):
 
 
 def print_notice() -> None:
+    # ignore for conversion to py2
+    # flake8: noqa=E502
     print(
-        'Notice: this script is going to access magi logs.  This may take a while.\n '
-        'Make sure your experiment is swapped in, magi is running on the click node.\n '
+        'Notice: this script is going to access magi logs.  This may take a while.\n ' \
+        'Make sure your experiment is swapped in, magi is running on the click node.\n ' \
         'If you need assistances, please email lincoln@isi.edu.\n'
     )
 
@@ -124,7 +126,7 @@ def create_template_aal(click_config: Dict, residual: bool = True) -> str:
     LOG.debug('creating template')
     file_ptr = 'generated_click_template.aal'
     base_template = 'click_template.aal'
-    temp_file: BinaryIO = None
+    temp_file = None  # type = BinaryIO
     if residual:
         # create our temporary aal file
         temp_name = tempfile.gettempdir() + '/' + file_ptr
@@ -497,7 +499,7 @@ def set_cmdline_opts(click_info: List[str], project: str = None, experiment: str
 
 def parse_input_file(path: str) -> Dict:
     comment = '#'
-    input_dict: Dict[str, Any] = {
+    input_dict = {
         'click_server': None,
         'control_server': None,
         'project': None,
@@ -506,7 +508,7 @@ def parse_input_file(path: str) -> Dict:
         'element': None,
         'key': None,
         'value': None,
-    }
+    }  # type: Dict[str, Any]
     with open(path, 'r') as pfile:
         for line in pfile:
             # try our best to parse, if it didnt have what we were looking for, skip
@@ -598,7 +600,7 @@ def main() -> None:
         # check how the user is going to supply info to this program, this is required
         # setup dictionary that contains all pertinant click info
         LOG.debug(str(options))
-        config: Dict[str, str] = {}
+        config = {}  # type: Dict[str, str]
         if options.interactive:
             print(colored('Use \\h for available values - there is a delay with using help', 'red'))
             config = get_inputs_from_user(options)
