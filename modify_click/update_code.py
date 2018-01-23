@@ -3,12 +3,14 @@ import sys
 from subprocess import PIPE, Popen
 from shutil import copyfile
 
+
 def installed() -> bool:
     proc = Popen('3to2 -h', stdout=PIPE, stderr=PIPE, shell=True)
     _, stderr = proc.communicate()
     if stderr:
         return False
     return True
+
 
 def install_3to2():
     proc = Popen('pip3 install 3to2 --user', stdout=PIPE, stderr=PIPE, shell=True)
@@ -18,6 +20,7 @@ def install_3to2():
         return False
     return True
 
+
 def update_code():
     ''' create a python2 version of wrapper.py named wrapper.py'''
     proc = Popen('3to2 -w wrapper.py', stdout=PIPE, stderr=PIPE, shell=True)
@@ -26,6 +29,7 @@ def update_code():
         print(stderr)
         return False
     return True
+
 
 if not installed():
     if not install_3to2():

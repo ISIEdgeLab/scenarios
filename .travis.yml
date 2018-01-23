@@ -2,7 +2,9 @@ language: python
 python:
   - "3.6"
 install:
-  - pip install pylint==1.8.1
   - pip install -r modify_click/requirements.txt
+  - pip install mypy==0.560
 script:
   - pylint --rcfile=modify_click/.pylintrc modify_click/*.py --ignore=py2_wrapper.py
+  - flake8 modify_click/*.py --exclude=py2_wrapper.py
+  - mypy modify_click/wrapper.py

@@ -12,7 +12,7 @@ from subprocess import PIPE, Popen
 # on control server, cannot connect outward, so we need to install the packages
 # from source/binary ourself
 try:
-    from typing import Dict, List, Tuple
+    from typing import Any, BinaryIO, Dict, List, Tuple
 except ImportError:
     GCMD = 'pip install --user packages/typing-3.6.2-py2-none-any.whl'
     GREMOTE_PROC = Popen(GCMD, stderr=PIPE, stdout=PIPE, shell=True)
@@ -26,7 +26,7 @@ try:
     from termcolor import colored
 except ImportError:
     GCWD = os.getcwd()
-    os.chdir(GCWD+'/packages/')
+    os.chdir(GCWD + '/packages/')
     GCMD = 'tar -xzf termcolor-1.1.0.tar.gz && '\
         'cd termcolor-1.1.0 && '\
         'python setup.py build && '\
@@ -38,7 +38,7 @@ except ImportError:
         print('Unable to install typing package locally, see error below:\n')
         print(GSTDERR)
         exit(3)
-    from termcolor import colored
+    from termcolor import colored  # type: ignore
 
 
 LOG_CONFIG = {
@@ -67,15 +67,18 @@ LOG_CONFIG = {
 logging.config.dictConfig(LOG_CONFIG)
 LOG = logging.getLogger(__name__)
 
+
 class ParseError(Exception):
     pass
 
+
 def print_notice() -> None:
     print(
-        'Notice: this script is going to access magi logs.  This may take a while.\n ' \
-        'Make sure your experiment is swapped in, magi is running on the click node.\n ' \
+        'Notice: this script is going to access magi logs.  This may take a while.\n '
+        'Make sure your experiment is swapped in, magi is running on the click node.\n '
         'If you need assistances, please email lincoln@isi.edu.\n'
     )
+
 
 def fill_template(file_name: str, click_config: Dict) -> None:
     LOG.debug("%s %s", file_name, str(click_config))
@@ -100,13 +103,13 @@ def fill_template(file_name: str, click_config: Dict) -> None:
         # just to shortcut branch prediction
         if change_me_tag in line:
             if msg_str in line:
-                updated_line = line.replace(msg_str+change_me_tag, click_config[msg_str.lower()])
+                updated_line = line.replace(msg_str + change_me_tag, click_config[msg_str.lower()])
             elif node_str in line:
-                updated_line = line.replace(node_str+change_me_tag, click_config[ele_str])
+                updated_line = line.replace(node_str + change_me_tag, click_config[ele_str])
             elif key_str in line:
-                updated_line = line.replace(key_str+change_me_tag, click_config[key_str.lower()])
+                updated_line = line.replace(key_str + change_me_tag, click_config[key_str.lower()])
             elif val_str in line:
-                updated_line = line.replace(val_str+change_me_tag, click_config[val_str.lower()])
+                updated_line = line.replace(val_str + change_me_tag, click_config[val_str.lower()])
 
         revised_contents.append(updated_line)
 
@@ -121,15 +124,15 @@ def create_template_aal(click_config: Dict, residual: bool = True) -> str:
     LOG.debug('creating template')
     file_ptr = 'generated_click_template.aal'
     base_template = 'click_template.aal'
-    temp_file = ''
+    temp_file: BinaryIO = None
     if residual:
         # create our temporary aal file
-        temp_name = tempfile.gettempdir()+'/'+file_ptr
+        temp_name = tempfile.gettempdir() + '/' + file_ptr
         temp_file = open(temp_name, 'wb')
     else:
         prefix_path = os.environ['PWD']
-        if os.path.isfile(prefix_path+'/'+base_template):
-            temp_file = open(prefix_path+'/'+file_ptr, u'wb')
+        if os.path.isfile(prefix_path + '/' + base_template):
+            temp_file = open(prefix_path + '/' + file_ptr, u'wb')
         else:
             raise IOError('File does not exist: {path}'.format(path=base_template))
 
@@ -143,25 +146,27 @@ def create_template_aal(click_config: Dict, residual: bool = True) -> str:
     # environment variable pwd does not resolve the sym links
     return temp_file.name
 
+
 # because this runs on users, but magi runs on control, we need to copy our generated aal
 # file from the localhost to the control host, perferably in the same the location.
 def scp_file_to_control(aal_file: str, exp: str, proj: str, control: str) -> bool:
     # pylint: disable=bad-continuation
-    remote_proc = Popen('scp {aal} {control}.{exp}.{proj}.isi.deterlab.net:{aal}'\
-        .format(
-            aal=aal_file,
-            control=control,
-            exp=exp,
-            proj=proj
-        ),
-        stderr=PIPE, stdout=PIPE, shell=True
-    )
+    remote_proc = Popen('scp {aal} {control}.{exp}.{proj}.isi.deterlab.net:{aal}'
+                        .format(
+                            aal=aal_file,
+                            control=control,
+                            exp=exp,
+                            proj=proj
+                        ),
+                        stderr=PIPE, stdout=PIPE, shell=True
+                        )
     stdout, stderr = remote_proc.communicate()
     LOG.debug(stdout)
     LOG.debug(stderr)
     if stderr:
         return False
     return True
+
 
 # ssh into the vrouter server, find the logs, and do best to parse the
 # logs for the current run
@@ -196,7 +201,7 @@ def check_magi_logs(keyword: str, experiment_id: str, project_id: str, server: s
             # now lets parse the line for user friendliness
             pretty = line[line.index('['):]
             pretty_list = sorted([str(x.replace("'", '')).strip() for x in pretty[1:-1].split(',')])
-            return '\n'.join(pretty_list)+'\n'
+            return '\n'.join(pretty_list) + '\n'
         if count < 20:
             last_twenty_lines.append(line)
         count += 1
@@ -206,6 +211,7 @@ def check_magi_logs(keyword: str, experiment_id: str, project_id: str, server: s
             logs='\n'.join(last_twenty_lines[::-1]),
         )
     )
+
 
 # run magi script passing in the templated aal file for click to parse
 # it should return a tuple (bool, str) where bool is wether run succeeded
@@ -227,6 +233,7 @@ def run_magi(aal_file: str, experiment_id: str, project_id: str,
         return (True, stdout)
     return (False, stderr)
 
+
 # help the user find which projects are available to them
 def print_projects() -> None:
     remote_cmd = 'for i in `groups`; do find /groups/ -maxdepth 1 -group $i; done'
@@ -237,6 +244,7 @@ def print_projects() -> None:
     else:
         print('Unable to find any valid projects -- ')
         LOG.error(stderr)
+
 
 # help the user find which experiments are apart of the selected project
 def print_experiments(project_id: str) -> None:
@@ -249,6 +257,7 @@ def print_experiments(project_id: str) -> None:
     else:
         print('Unable to find any valid experiments -- ')
         LOG.error(stderr)
+
 
 # print_elements is a hack approach, so instead of importing click control and getting
 # at the data ourselves, what we are going to do, is create a tmp aal with bogus inputs
@@ -273,6 +282,7 @@ def print_elements(experiment_id: str, project_id: str,
     element_logs = check_magi_logs('element', experiment_id, project_id, click_server)
     # some function here to format logs from error output to human readable
     print(element_logs)
+
 
 # see comments for print_elements on issues with implement
 def print_keys(click_element: str, experiment_id: str, project_id: str,
@@ -302,15 +312,15 @@ def get_click_element(experiment_id: str, project_id: str, control: str, click: 
         print_elements(experiment_id, project_id, control, click)
         click_element = input('{click}{cursor}'.format(cursor=cursor, click=ask_click))
     # probably not the best way, but if yes Yes y or Y, accept the input
-    accept = input('set click_element to {element}? ([y]/n) '.format(element=click_element))
-    # shouldnt reuse variable with different types...
-    accept = True if not accept or accept[0].lower() == 'y' else False
+    accept_str = input('set click_element to {element}? ([y]/n) '.format(element=click_element))
+    accept = True if not accept_str or accept_str[0].lower() == 'y' else False
     sys.stdout.flush()
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
         return get_click_element(experiment_id, project_id, control, click)
     LOG.debug('element set to "%s"', click_element)
     return click_element
+
 
 def get_key_for_element(element: str, experiment_id: str, project_id: str,
                         control: str, click: str) -> str:
@@ -321,9 +331,8 @@ def get_key_for_element(element: str, experiment_id: str, project_id: str,
         print_keys(element, experiment_id, project_id, control, click)
         element_key = input('{ekey}{cursor}'.format(cursor=cursor, ekey=ask_key))
     # probably not the best way, but if yes Yes y or Y, accept the input
-    accept = input('set key to {key}? ([y]/n) '.format(key=element_key))
-    # shouldnt reuse variable with different types...
-    accept = True if not accept or accept[0].lower() == 'y' else False
+    accept_str = input('set key to {key}? ([y]/n) '.format(key=element_key))
+    accept = True if not accept_str or accept_str[0].lower() == 'y' else False
     sys.stdout.flush()
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
@@ -331,14 +340,14 @@ def get_key_for_element(element: str, experiment_id: str, project_id: str,
     LOG.debug('key set to "%s"', element_key)
     return element_key
 
+
 def get_value_for_key(element_key: str) -> str:
     cursor = colored('(value) > ', 'green')
     ask_value = 'set "{key}" to what value:\n'.format(key=element_key)
     key_value = input(colored('{kv}{cursor}'.format(cursor=cursor, kv=ask_value), 'red'))
     # probably not the best way, but if yes Yes y or Y, accept the input
-    accept = input('set "{key}" to {value}? ([y]/n) '.format(key=element_key, value=key_value))
-    # shouldnt reuse variable with different types...
-    accept = True if not accept or accept[0].lower() == 'y' else False
+    accept_str = input('set "{key}" to {value}? ([y]/n) '.format(key=element_key, value=key_value))
+    accept = True if not accept_str or accept_str[0].lower() == 'y' else False
     sys.stdout.flush()
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
@@ -346,18 +355,19 @@ def get_value_for_key(element_key: str) -> str:
     LOG.debug('key set to "%s"', key_value)
     return key_value
 
+
 def get_experiment_id(project_id: str) -> str:
     cursor = colored('(experiment id) > ', 'green')
     ask_value = 'Experiment Identifier?\n'
     exp_value = input(colored('{exp_id}{cursor}'.format(cursor=cursor, exp_id=ask_value), 'red'))
     while exp_value == r'\h':
         print_experiments(project_id)
-        exp_value = input(colored('{exp_id}{cursor}'\
-            .format(cursor=cursor, exp_id=ask_value), 'red'))
+        exp_value = input(colored('{exp_id}{cursor}'
+                                  .format(cursor=cursor, exp_id=ask_value), 'red'))
     # probably not the best way, but if yes Yes y or Y, accept the input
-    accept = input('Experiment ID = {value}? ([y]/n) '.format(value=exp_value))
+    accept_str = input('Experiment ID = {value}? ([y]/n) '.format(value=exp_value))
     # shouldnt reuse variable with different types...
-    accept = True if not accept or accept[0].lower() == 'y' else False
+    accept = True if not accept_str or accept_str[0].lower() == 'y' else False
     sys.stdout.flush()
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
@@ -365,18 +375,18 @@ def get_experiment_id(project_id: str) -> str:
     LOG.debug('experiment set to "%s"', exp_value)
     return exp_value
 
+
 def get_project_id() -> str:
     cursor = colored('(project) > ', 'green')
     ask_value = 'Project Name?\n'
     proj_value = input(colored('{proj_id}{cursor}'.format(cursor=cursor, proj_id=ask_value), 'red'))
     while proj_value == r'\h':
         print_projects()
-        proj_value = input(colored('{proj_id}{cursor}'\
-            .format(cursor=cursor, proj_id=ask_value), 'red'))
+        proj_value = input(colored('{proj_id}{cursor}'
+                                   .format(cursor=cursor, proj_id=ask_value), 'red'))
     # probably not the best way, but if yes Yes y or Y, accept the input
-    accept = input('Project Name is {value}? ([y]/n) '.format(value=proj_value))
-    # shouldnt reuse variable with different types...
-    accept = True if not accept or accept[0].lower() == 'y' else False
+    accept_str = input('Project Name is {value}? ([y]/n) '.format(value=proj_value))
+    accept = True if not accept_str or accept_str[0].lower() == 'y' else False
     sys.stdout.flush()
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
@@ -384,18 +394,18 @@ def get_project_id() -> str:
     LOG.debug('project set to "%s"', proj_value)
     return proj_value
 
+
 def get_server(server_type: str) -> str:
     default = 'vrouter' if server_type == 'click' else 'control'
-    cursor = colored('({stype}_server) [default={dtype}] > '\
-        .format(stype=server_type, dtype=default), 'green')
+    cursor = colored('({stype}_server) [default={dtype}] > '
+                     .format(stype=server_type, dtype=default), 'green')
     ask_type = '{stype} server hostname? \n'.format(stype=server_type)
     response = input(colored('{stype}{cursor}'.format(cursor=cursor, stype=ask_type), 'red'))
     # probably not the best way, but if yes Yes y or Y, accept the input
     response = response if response else default
-    accept = input('{stype} server hostname is {value}? ([y]/n) '\
-        .format(value=response, stype=server_type))
-    # shouldnt reuse variable with different types...
-    accept = True if not accept or accept[0].lower() == 'y' else False
+    accept_str = input('{stype} server hostname is {value}? ([y]/n) '
+                       .format(value=response, stype=server_type))
+    accept = True if not accept_str or accept_str[0].lower() == 'y' else False
     sys.stdout.flush()
     # super ghetto, but just recurse for no reason until they figure out what they want
     if not accept:
@@ -403,10 +413,11 @@ def get_server(server_type: str) -> str:
     LOG.debug('%s server hostname set to "%s"', server_type, response)
     return response
 
-def get_inputs_from_user(options: argparse = None) -> Dict:
+
+def get_inputs_from_user(options: argparse.Namespace = None) -> Dict:
     inputs = {}
     try:
-        if not options: # about 99% sure this will throw, but yolo
+        if not options:  # about 99% sure this will throw, but yolo
             options.project = None
             options.experiment = None
             options.click_server = None
@@ -439,12 +450,13 @@ def get_inputs_from_user(options: argparse = None) -> Dict:
         inputs['element'] = click_element
         inputs['key'] = element_key
         inputs['value'] = key_value
-        LOG.info(inputs)
+        LOG.info(str(inputs))
         return inputs
     except KeyboardInterrupt:
         print('\nexiting program - not saving results')
         sys.exit(2)
     return inputs
+
 
 def verified_host() -> Tuple[bool, str]:
     remote_cmd = 'hostname'
@@ -465,9 +477,10 @@ def verified_host() -> Tuple[bool, str]:
             LOG.error('invalid hostname: %s', stdout)
     return (False, '')
 
+
 # pylint: disable=fixme
 # TODO: add checking, or make options better
-def set_cmdline_opts(click_info: List[str], project: str = None, experiment: str = None):
+def set_cmdline_opts(click_info: List[str], project: str = None, experiment: str = None) -> Dict:
     input_dict = {
         'click_server': None,
         'control_server': None,
@@ -478,12 +491,13 @@ def set_cmdline_opts(click_info: List[str], project: str = None, experiment: str
         'key': click_info[2],
         'value': click_info[3],
     }
-    LOG.debug(input_dict)
+    LOG.debug(str(input_dict))
     return input_dict
+
 
 def parse_input_file(path: str) -> Dict:
     comment = '#'
-    input_dict = {
+    input_dict: Dict[str, Any] = {
         'click_server': None,
         'control_server': None,
         'project': None,
@@ -508,15 +522,16 @@ def parse_input_file(path: str) -> Dict:
                     input_dict[key] = value
             # naughty to allow bare-except, but I dont want parser to break for any reason
             # pylint: disable=bare-except
-            except:
+            except:  # noqa: E722
                 pass
     for key in input_dict:
         if not input_dict[key]:
             print("Error parsing file: {} was not defined.".format(key))
     return input_dict
 
+
 # parse the user options specified
-def parse_options() -> Dict:
+def parse_options() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description='Dynamically modify the click modular router.',
         add_help=True,
@@ -568,8 +583,9 @@ def parse_options() -> Dict:
         sys.exit(2)
     return args
 
+
 # pylint: disable=too-many-branches
-def main():
+def main() -> None:
     options = parse_options()
     # dont allow hosts not on deterlab to attempt to run this script
     host_on_isi, script_run_from = verified_host()
@@ -581,8 +597,8 @@ def main():
             LOG.setLevel(logging.WARN)
         # check how the user is going to supply info to this program, this is required
         # setup dictionary that contains all pertinant click info
-        LOG.debug(options)
-        config = {}
+        LOG.debug(str(options))
+        config: Dict[str, str] = {}
         if options.interactive:
             print(colored('Use \\h for available values - there is a delay with using help', 'red'))
             config = get_inputs_from_user(options)
@@ -628,5 +644,7 @@ def main():
     else:
         print(colored('unable to run, must be on run on an isi.deterlab.net host', 'red'))
         print(colored('if this host is on deterlab, make sure the FQDN is the hostname', 'red'))
+
+
 if __name__ == '__main__':
     main()
