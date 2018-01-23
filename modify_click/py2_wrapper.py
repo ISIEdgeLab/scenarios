@@ -15,7 +15,7 @@ from subprocess import PIPE, Popen
 # on control server, cannot connect outward, so we need to install the packages
 # from source/binary ourself
 try:
-    from typing import Any, BinaryIO, Dict, List, Tuple  # pylint: disable=unused-import
+    from typing import Any, BinaryIO, Dict, List, Tuple, Union  # pylint: disable=unused-import
 except ImportError:
     GCMD = u'pip install --user packages/typing-3.6.2-py2-none-any.whl'
     GREMOTE_PROC = Popen(GCMD, stderr=PIPE, stdout=PIPE, shell=True)
@@ -70,6 +70,8 @@ LOG_CONFIG = {
 logging.config.dictConfig(LOG_CONFIG)
 LOG = logging.getLogger(__name__)
 
+# these logs only exist when experiment swapped in, where magi running and mounted
+MAGI_LOG_LOCATION = u'/var/log/magi/logs/daemon.log'
 
 class ParseError(Exception):
     pass
@@ -174,22 +176,29 @@ def scp_file_to_control(aal_file, exp, proj, control):
 # ssh into the vrouter server, find the logs, and do best to parse the
 # logs for the current run
 # yolo - will run magi on smaller nodes tomorrow to verifying logging works
-def check_magi_logs(keyword, experiment_id, project_id, server):
-    # these logs only exist when experiment swapped in, where magi running and mounted
-    magi_log_location = u'/var/log/magi/logs/daemon.log'
+def check_magi_logs(keyword, experiment_id, project_id,
+                    server, want_fail = False):
     # more efficient mechanisms... make an assumption about what magi is spewing to logs
     # using tail -n X, here we make no assumption, just hope magi logs are not HUGE
     remote_cmd = u'ssh {vrouter}.{exp}.{proj}.isi.deterlab.net ' \
         u'cat {magi_logs}'.format(
             exp=experiment_id,
             proj=project_id,
-            magi_logs=magi_log_location,
+            magi_logs=MAGI_LOG_LOCATION,
             vrouter=server,
         )
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
-    if stderr:
-        return stderr
+    # only way to check if we 'succeeded' or 'failed'
+    check_failure = stderr.split(u'\n')[:-1]
+    # if we wanted to 'fail' we should see runtime exception, other wise we
+    # we would like to see 'write response' although these are particular to what is calling them
+    if u'Sending back a RunTimeException event.' in check_failure and not want_fail:
+        pass
+    elif u'write response: 200: OK' in check_failure and want_fail:
+        pass
+    else:
+        return (False, stderr)
 
     # question of performance here - best way to search a file, i would like
     # to open file, seek to end and read in reverse since I really want tail of file
@@ -204,16 +213,11 @@ def check_magi_logs(keyword, experiment_id, project_id, server):
             # now lets parse the line for user friendliness
             pretty = line[line.index(u'['):]
             pretty_list = sorted([unicode(x.replace(u"'", u'')).strip() for x in pretty[1:-1].split(u',')])
-            return u'\n'.join(pretty_list) + u'\n'
+            return (True, u'\n'.join(pretty_list) + u'\n')
         if count < 20:
             last_twenty_lines.append(line)
         count += 1
-    raise ParseError(
-        u'unable to find "{kw}" in magi logs.  Dump of last 20 lines of logs: {logs}\n\n'.format(
-            kw=keyword,
-            logs=u'\n'.join(last_twenty_lines[::-1]),
-        )
-    )
+    return (False, u'\n'.join(last_twenty_lines[::-1]))
 
 
 # run magi script passing in the templated aal file for click to parse
@@ -268,43 +272,37 @@ def print_experiments(project_id):
 # we care about.
 # a bit of logic needs to go into this to infer which of the previous incorrect instructions
 # correlates to which run
-def print_elements(experiment_id, project_id,
-                   control_server, click_server):
+def print_click_internals(click_element, experiment_id, project_id,
+                          control_server, click_server):
     bogus_dict = {
-        u'msg': u'print_elements',
-        u'element': u'aaaaaaaaaaaaaaa_1_aaaaaaaaaaaaaaaaa',
-        u'key': u'garbage',
+        u'msg': u'print_click_internals',
+        u'key': u'aaaaaaaaaaaaaaa_1_aaaaaaaaaaaaaaaaa',
         u'value': u'recycling',
     }
+    if not click_element:
+        bogus_dict[u'element'] = u'aaaaaaaaaaaaaaa_1_aaaaaaaaaaaaaaaaa'
+    else:
+        bogus_dict[u'element'] = click_element
+    # create a template file with our bogus_dict values
     aal = create_template_aal(bogus_dict)
     print_notice()
+    # now copy our bogus template over to the control server
+    _ = scp_file_to_control(
+        aal, experiment_id, project_id, control_server)
+    # run magi using our bogus dict, hopefully we will get output that can be parsed
     success, out = run_magi(aal, experiment_id, project_id, server=control_server)
     if not success:
         print u'unable to run magi on control server - verify inputs are correct.  err:\n %s', out
         exit(4)
-    element_logs = check_magi_logs(u'element', experiment_id, project_id, click_server)
-    # some function here to format logs from error output to human readable
-    print element_logs
-
-
-# see comments for print_elements on issues with implement
-def print_keys(click_element, experiment_id, project_id,
-               control_server, click_server):
-    bogus_dict = {
-        u'msg': u'print_keys',
-        u'element': click_element,
-        u'key': u'aaaaaaaaaaaaaaa_1_aaaaaaaaaaaaaaaaa',
-        u'value': u'recycling',
-    }
-    aal = create_template_aal(bogus_dict)
-    print_notice()
-    success, out = run_magi(aal, experiment_id, project_id, server=control_server)
-    if not success:
-        print u'unable to run magi on control server - verify inputs are correct.  err:\n %s', out
-        exit(5)
-    key_logs = check_magi_logs(u'key', experiment_id, project_id, click_server)
-    # some function here to format logs from error output to human readable
-    print key_logs
+    # need to check the output and verify it all worked.  We want it to fail, so we can parse error
+    # logs for the correct output
+    worked, element_logs = check_magi_logs(u'element', experiment_id, project_id,
+                                           click_server, want_fail=True)
+    if worked:
+        print element_logs
+    else:
+        LOG.error(u'error retrieving logs from vrouter')
+        LOG.error(element_logs)
 
 
 def get_click_element(experiment_id, project_id, control, click):
@@ -312,7 +310,7 @@ def get_click_element(experiment_id, project_id, control, click):
     ask_click = u'Click Element:\n'
     click_element = raw_input(colored(u'{click}{cursor}'.format(cursor=cursor, click=ask_click), u'red'))
     while click_element == ur'\h':
-        print_elements(experiment_id, project_id, control, click)
+        print_click_internals(None, experiment_id, project_id, control, click)
         click_element = raw_input(u'{click}{cursor}'.format(cursor=cursor, click=ask_click))
     # probably not the best way, but if yes Yes y or Y, accept the input
     accept_str = raw_input(u'set click_element to {element}? ([y]/n) '.format(element=click_element))
@@ -331,7 +329,7 @@ def get_key_for_element(element, experiment_id, project_id,
     ask_key = u'Element Key (to change):\n'
     element_key = raw_input(colored(u'{ekey}{cursor}'.format(cursor=cursor, ekey=ask_key), u'red'))
     while element_key == ur'\h':
-        print_keys(element, experiment_id, project_id, control, click)
+        print_click_internals(element, experiment_id, project_id, control, click)
         element_key = raw_input(u'{ekey}{cursor}'.format(cursor=cursor, ekey=ask_key))
     # probably not the best way, but if yes Yes y or Y, accept the input
     accept_str = raw_input(u'set key to {key}? ([y]/n) '.format(key=element_key))
