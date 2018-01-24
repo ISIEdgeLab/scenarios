@@ -268,7 +268,8 @@ def print_click_internals(click_element: Union[None, str], experiment_id: str, p
         exit(4)
     # need to check the output and verify it all worked.  We want it to fail, so we can parse error
     # logs for the correct output
-    worked, element_logs = check_magi_logs('element', experiment_id, project_id,
+    keyword = 'element' if not click_element else 'key'
+    worked, element_logs = check_magi_logs(keyword, experiment_id, project_id,
                                            click_server, want_fail=True)
     if worked:
         print(element_logs)
@@ -430,18 +431,25 @@ def get_inputs_from_user(options: argparse.Namespace = None) -> Dict:
     return inputs
 
 
-def verified_host() -> Tuple[bool, str]:
+def verified_host() -> Dict:
+    rdict = {
+        'run': False,
+    } # type: Dict
     remote_cmd = 'hostname'
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
     if stderr:
-        return (False, '')
+        return rdict
     if stdout:
         try:
             stdout = stdout.decode('utf-8').strip()
             hostname = stdout.split('.')
             if '.'.join(hostname[-3:]) == 'isi.deterlab.net':
-                return (True, hostname[0])
+                rdict['run'] = True
+                rdict['host'] = hostname[0]
+                rdict['experiment'] = hostname[1]
+                rdict['project'] = hostname[2]
+                return (True, rdict)
             else:
                 LOG.error('invalid hostname: %s - %s', stdout, hostname)
         except IndexError:
@@ -449,7 +457,7 @@ def verified_host() -> Tuple[bool, str]:
                 'unable to parse hostname, is the hostname set? Is it an ISI node?', failed=True
             )
             LOG.error('invalid hostname: %s', stdout)
-    return (False, '')
+    return rdict
 
 
 # pylint: disable=fixme
@@ -538,11 +546,15 @@ def parse_options() -> argparse.Namespace:
 
     parser.add_argument('--control', dest='control_server', action='store',
                         default=False, metavar=('CONTROL HOSTNAME'),
-                        help='specify the control node used in the experiment')
+                        help='specify the control node used in the experiment'\
+                        '[default is set to "control"]'
+                       )
 
     parser.add_argument('--click', dest='click_server', action='store',
                         default=False, metavar=('CLICK HOSTNAME'),
-                        help='specify the node with click installed on it')
+                        help='specify the node with click installed on it'\
+                        '[default is set to "vrouter"]'
+                       )
 
     parser.add_argument('-v', '--verbose', dest='verbose', action='store_true',
                         default=False,
@@ -558,12 +570,12 @@ def parse_options() -> argparse.Namespace:
     return args
 
 
-# pylint: disable=too-many-branches
+# pylint: disable=too-many-branches, too-many-statements
 def main() -> None:
     options = parse_options()
     # dont allow hosts not on deterlab to attempt to run this script
-    host_on_isi, script_run_from = verified_host()
-    if host_on_isi:
+    hostname_check = verified_host()
+    if hostname_check['run']:
         # set the logger based on verbosity
         if options.verbose:
             LOG.setLevel(logging.DEBUG)
@@ -584,21 +596,39 @@ def main() -> None:
         if options.experiment:
             config['experiment'] = options.experiment
             LOG.debug('experiment set to: %s', config['experiment'])
+        else:
+            LOG.info('attempting to use experiment from hostname!')
+            config['experiment'] = hostname_check['experiment']
+
         if options.project:
             config['project'] = options.project
             LOG.debug('project set to: %s', config['project'])
+        else:
+            LOG.info('attempting to use project from hostname!')
+            config['project'] = hostname_check['project']
+
         if options.control_server:
             config['control_server'] = options.control_server
             LOG.debug('control_server set to: %s', config['control_server'])
+        else:
+            LOG.info('using "control" as default for control server')
+            config['control_server'] = 'control'
+
         if options.click_server:
             config['click_server'] = options.click_server
             LOG.debug('click_server set to: %s', config['click_server'])
+        else:
+            LOG.info('using "vrouter" as default for click server')
+            config['click_server'] = 'vrouter'
+
+
         LOG.debug('config with cmd line options: %s', config)
 
         # Main execution - we've gotten all the inputs from user, so now lets make changes to click
         aal_file = create_template_aal(config, residual=True)
         # if this script is run from the control_server, no need to scp it over
-        if script_run_from != config['control_server']:
+        # also may seem a bit awkward setting control server above, but it might work in odd case
+        if hostname_check['host'] != config['control_server']:
             scp_worked = scp_file_to_control(
                 aal_file, config['experiment'], config['project'], config['control_server']
             )

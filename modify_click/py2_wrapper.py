@@ -2,7 +2,7 @@
 from __future__ import with_statement
 from __future__ import absolute_import
 from io import open
-__version__ = u'0.0.1'
+__version__ = u'0.1.0'
 
 import argparse
 import os
@@ -43,39 +43,17 @@ except ImportError:
         exit(3)
     from termcolor import colored  # type: ignore
 
-
-LOG_CONFIG = {
-    u'version': 1,
-    u'formatters': {
-        u'standard': {
-            u'format': u'%(asctime)s [%(levelname)s] %(name)s: %(message)s'
-        },
-    },
-    u'handlers': {
-        u'default': {
-            u'level': u'DEBUG',
-            u'formatter': u'standard',
-            u'class': u'logging.StreamHandler',
-        },
-    },
-    u'loggers': {
-        u'': {
-            u'handlers': [u'default'],
-            u'level': u'DEBUG',
-            u'propagate': True
-        },
-    }
-}
-
-logging.config.dictConfig(LOG_CONFIG)
+logging.config.fileConfig(fname=u'logging.config', disable_existing_loggers=False)
 LOG = logging.getLogger(__name__)
 
 # these logs only exist when experiment swapped in, where magi running and mounted
 MAGI_LOG_LOCATION = u'/var/log/magi/logs/daemon.log'
 
-class ParseError(Exception):
-    pass
-
+def print_condition(colored_output, failed = False):
+    if failed:
+        sys.stderr.write(colored(u'%s' % colored_output, u'red'))
+    else:
+        sys.stdout.write(colored(u'%s' % colored_output, u'green'))
 
 def print_notice():
     # ignore for conversion to py2
@@ -115,9 +93,7 @@ def fill_template(file_name, click_config):
                 updated_line = line.replace(key_str + change_me_tag, click_config[key_str.lower()])
             elif val_str in line:
                 updated_line = line.replace(val_str + change_me_tag, click_config[val_str.lower()])
-
         revised_contents.append(updated_line)
-
     # write back our updated template file
     with open(file_name, u'w') as file_write:
         for line in revised_contents:
@@ -135,6 +111,9 @@ def create_template_aal(click_config, residual = True):
         temp_name = tempfile.gettempdir() + u'/' + file_ptr
         temp_file = open(temp_name, u'wb')
     else:
+        # add the absolute path to name as it will run remotely from home dir
+        # os.getcwd unfortunately resolves symbolic links which differ from users to control
+        # environment variable pwd does not resolve the sym links
         prefix_path = os.environ[u'PWD']
         if os.path.isfile(prefix_path + u'/' + base_template):
             temp_file = open(prefix_path + u'/' + file_ptr, u'wb')
@@ -146,9 +125,6 @@ def create_template_aal(click_config, residual = True):
             temp_file.write(line)
     temp_file.close()
     fill_template(temp_file.name, click_config)
-    # add the absolute path to name as it will run remotely from home dir
-    # os.getcwd unfortunately resolves symbolic links which differ from users to control
-    # environment variable pwd does not resolve the sym links
     return temp_file.name
 
 
@@ -174,12 +150,12 @@ def scp_file_to_control(aal_file, exp, proj, control):
 
 
 # ssh into the vrouter server, find the logs, and do best to parse the
-# logs for the current run
-# yolo - will run magi on smaller nodes tomorrow to verifying logging works
+# logs for the current run. want_fail here is based on the command send with run_magi
+# if it wanted an error (as with print_ functions) or expected success (updating click)
 def check_magi_logs(keyword, experiment_id, project_id,
                     server, want_fail = False):
     # more efficient mechanisms... make an assumption about what magi is spewing to logs
-    # using tail -n X, here we make no assumption, just hope magi logs are not HUGE
+    # using tail -n X, here we make no assumption, just hope magi logs are not HUGE and being rolled
     remote_cmd = u'ssh {vrouter}.{exp}.{proj}.isi.deterlab.net ' \
         u'cat {magi_logs}'.format(
             exp=experiment_id,
@@ -200,18 +176,14 @@ def check_magi_logs(keyword, experiment_id, project_id,
         return (True, u'\n'.join(stdout.split(u'\n')[-4:]))
     else:
         return (False, stderr)
-
-    # question of performance here - best way to search a file, i would like
-    # to open file, seek to end and read in reverse since I really want tail of file
-    # correct method is long and I dont feel like copying off stack overflow
-    # so this will fail or take long when log grows past memory
+    # in case of error, lets spew additional lines to help programmer/debugger find issue
     last_twenty_lines = []
     count = 0
-    # for line in reversed(list(open(magi_log_location, 'rb'))):
+    # start at the end of the logs, and go to the beginning - searching
     for line in stdout.decode(u'utf-8').strip().split(u'\n')[::-1]:
         if keyword.upper() in line:
-            # this is a hack - better methods, but should be quick
-            # now lets parse the line for user friendliness
+            # this correlates to magi_modules/clickControl with how it writes to logs, which
+            # in our case is through a list, so lets parse that list, given we've found our keyword
             pretty = line[line.index(u'['):]
             pretty_list = sorted([unicode(x.replace(u"'", u'')).strip() for x in pretty[1:-1].split(u',')])
             return (True, u'\n'.join(pretty_list) + u'\n')
@@ -237,42 +209,35 @@ def run_magi(aal_file, experiment_id, project_id,
     stdout, stderr = remote_proc.communicate()
     LOG.debug(stdout)
     LOG.debug(stderr)
+    # this return code is meaningless, but hey, maybe ssh fails - good to know
     if remote_proc.returncode == 0:
         return (True, stdout)
     return (False, stderr)
 
 
-# help the user find which projects are available to them
-def print_projects():
-    remote_cmd = u'for i in `groups`; do find /groups/ -maxdepth 1 -group $i; done'
+# help the user find which projects and or experiments they have access to
+def print_linux_groups(project_id = None):
+    if not project_id:
+        remote_cmd = u'for i in `groups`; do find /groups/ -maxdepth 1 -group $i; done'
+    else:
+        remote_cmd = u'find /proj/{project}/exp/ -maxdepth 1 -group {project}'\
+                .format(project=project_id)
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
     if not stderr:
-        print u'\n'.join([x.split(u'/')[-1] for x in stdout.split(u'\n') if x])
+        if not project_id:
+            print u'\n'.join([x.split(u'/')[-1] for x in stdout.split(u'\n') if x])
+        else:
+            print u'\n'.join(sorted([x.split(u'/')[-1] for x in stdout.split(u'\n') if x]))
     else:
-        print u'Unable to find any valid projects -- '
+        print_condition(u'Unable to find any valid projects -- ', failed=True)
         LOG.error(stderr)
 
 
-# help the user find which experiments are apart of the selected project
-def print_experiments(project_id):
-    # if this should be defined by -user (only ones the user created, or all group projects
-    remote_cmd = u'find /proj/{project}/exp/ -maxdepth 1 -group {project}'.format(project=project_id)
-    remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
-    stdout, stderr = remote_proc.communicate()
-    if not stderr:
-        print u'\n'.join(sorted([x.split(u'/')[-1] for x in stdout.split(u'\n') if x]))
-    else:
-        print u'Unable to find any valid experiments -- '
-        LOG.error(stderr)
-
-
-# print_elements is a hack approach, so instead of importing click control and getting
+# print_click_internals is a hack approach, so instead of importing click control and getting
 # at the data ourselves, what we are going to do, is create a tmp aal with bogus inputs
-# give it to magi to run, and look at the logs returned by magi to find the variables
-# we care about.
-# a bit of logic needs to go into this to infer which of the previous incorrect instructions
-# correlates to which run
+# give it to magi to run, and look at the error logs on vrouter, which will tell us what we did
+# wrong (hopefully - via validateClickInputs)
 def print_click_internals(click_element, experiment_id, project_id,
                           control_server, click_server):
     bogus_dict = {
@@ -280,6 +245,7 @@ def print_click_internals(click_element, experiment_id, project_id,
         u'key': u'aaaaaaaaaaaaaaa_1_aaaaaaaaaaaaaaaaa',
         u'value': u'recycling',
     }
+    # if we have an element we want to know the valid keys, otherwise we want valid elements
     if not click_element:
         bogus_dict[u'element'] = u'aaaaaaaaaaaaaaa_1_aaaaaaaaaaaaaaaaa'
     else:
@@ -288,24 +254,29 @@ def print_click_internals(click_element, experiment_id, project_id,
     aal = create_template_aal(bogus_dict)
     print_notice()
     # now copy our bogus template over to the control server
-    _ = scp_file_to_control(
+    scp_worked = scp_file_to_control(
         aal, experiment_id, project_id, control_server)
-
+    if not scp_worked:
+        print_condition(u'unable to scp generated aal file to control server.', failed=True)
+        exit(4)
     # run magi using our bogus dict, hopefully we will get output that can be parsed
     success, out = run_magi(aal, experiment_id, project_id, server=control_server)
     if not success:
-        print u'unable to run magi on control server - verify inputs are correct.  err:\n %s', out
+        print_condition(
+            u'unable to run magi on control server --  Error:\n {}'.format(out),
+            failed=True
+        )
         exit(4)
     # need to check the output and verify it all worked.  We want it to fail, so we can parse error
     # logs for the correct output
-    worked, element_logs = check_magi_logs(u'element', experiment_id, project_id,
+    keyword = u'element' if not click_element else u'key'
+    worked, element_logs = check_magi_logs(keyword, experiment_id, project_id,
                                            click_server, want_fail=True)
     if worked:
         print element_logs
     else:
         LOG.error(u'error retrieving logs from vrouter')
         LOG.error(element_logs)
-
 
 def get_click_element(experiment_id, project_id, control, click):
     cursor = colored(u'(element) > ', u'green')
@@ -364,7 +335,7 @@ def get_experiment_id(project_id):
     ask_value = u'Experiment Identifier?\n'
     exp_value = raw_input(colored(u'{exp_id}{cursor}'.format(cursor=cursor, exp_id=ask_value), u'red'))
     while exp_value == ur'\h':
-        print_experiments(project_id)
+        print_linux_groups(project_id)
         exp_value = raw_input(colored(u'{exp_id}{cursor}'
                                   .format(cursor=cursor, exp_id=ask_value), u'red'))
     # probably not the best way, but if yes Yes y or Y, accept the input
@@ -384,7 +355,7 @@ def get_project_id():
     ask_value = u'Project Name?\n'
     proj_value = raw_input(colored(u'{proj_id}{cursor}'.format(cursor=cursor, proj_id=ask_value), u'red'))
     while proj_value == ur'\h':
-        print_projects()
+        print_linux_groups()
         proj_value = raw_input(colored(u'{proj_id}{cursor}'
                                    .format(cursor=cursor, proj_id=ask_value), u'red'))
     # probably not the best way, but if yes Yes y or Y, accept the input
@@ -456,29 +427,38 @@ def get_inputs_from_user(options = None):
         LOG.info(unicode(inputs))
         return inputs
     except KeyboardInterrupt:
-        print u'\nexiting program - not saving results'
+        print_condition(u'\nexiting program - not saving results', failed=True)
         sys.exit(2)
     return inputs
 
 
 def verified_host():
+    rdict = {
+        u'run': False,
+    } # type: Dict
     remote_cmd = u'hostname'
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
     if stderr:
-        return (False, u'')
+        return rdict
     if stdout:
         try:
             stdout = stdout.decode(u'utf-8').strip()
             hostname = stdout.split(u'.')
             if u'.'.join(hostname[-3:]) == u'isi.deterlab.net':
-                return (True, hostname[0])
+                rdict[u'run'] = True
+                rdict[u'host'] = hostname[0]
+                rdict[u'experiment'] = hostname[1]
+                rdict[u'project'] = hostname[2]
+                return (True, rdict)
             else:
                 LOG.error(u'invalid hostname: %s - %s', stdout, hostname)
         except IndexError:
-            print u'unable to parse hostname, is the hostname set? Is it an ISI node?'
+            print_condition(
+                u'unable to parse hostname, is the hostname set? Is it an ISI node?', failed=True
+            )
             LOG.error(u'invalid hostname: %s', stdout)
-    return (False, u'')
+    return rdict
 
 
 # pylint: disable=fixme
@@ -529,7 +509,7 @@ def parse_input_file(path):
                 pass
     for key in input_dict:
         if not input_dict[key]:
-            print u"Error parsing file: {} was not defined.".format(key)
+            print_condition(u"Error parsing file: {} was not defined.".format(key), failed=True)
     return input_dict
 
 
@@ -567,11 +547,15 @@ def parse_options():
 
     parser.add_argument(u'--control', dest=u'control_server', action=u'store',
                         default=False, metavar=(u'CONTROL HOSTNAME'),
-                        help=u'specify the control node used in the experiment')
+                        help=u'specify the control node used in the experiment'\
+                        u'[default is set to "control"]'
+                       )
 
     parser.add_argument(u'--click', dest=u'click_server', action=u'store',
                         default=False, metavar=(u'CLICK HOSTNAME'),
-                        help=u'specify the node with click installed on it')
+                        help=u'specify the node with click installed on it'\
+                        u'[default is set to "vrouter"]'
+                       )
 
     parser.add_argument(u'-v', u'--verbose', dest=u'verbose', action=u'store_true',
                         default=False,
@@ -582,73 +566,97 @@ def parse_options():
     args = parser.parse_args()
     if args.ignore and args.interactive:
         parser.print_help()
-        sys.stderr.write(colored(u'ERROR: cannot use -i and -y in conjunction\n', u'red'))
+        print_condition(u'ERROR: cannot use -i and -y in conjunction\n', failed=True)
         sys.exit(2)
     return args
 
 
-# pylint: disable=too-many-branches
+# pylint: disable=too-many-branches, too-many-statements
 def main():
     options = parse_options()
     # dont allow hosts not on deterlab to attempt to run this script
-    host_on_isi, script_run_from = verified_host()
-    if host_on_isi:
+    hostname_check = verified_host()
+    if hostname_check[u'run']:
         # set the logger based on verbosity
         if options.verbose:
             LOG.setLevel(logging.DEBUG)
         else:
             LOG.setLevel(logging.WARN)
-        # check how the user is going to supply info to this program, this is required
-        # setup dictionary that contains all pertinant click info
+
+        # This is all option handling, making sure user inputs are set correctly
         LOG.debug(unicode(options))
         config = {}  # type: Dict[str, str]
         if options.interactive:
-            print colored(u'Use \\h for available values - there is a delay with using help', u'red')
+            print_condition(u'Use \\h for available values - there is a delay with using help')
             config = get_inputs_from_user(options)
         elif options.file_input:
             config = parse_input_file(options.file_input)
         elif options.cmdline:
             config = set_cmdline_opts(options.cmdline)
-
         LOG.debug(u'config file after inputs: %s', config)
-
         if options.experiment:
             config[u'experiment'] = options.experiment
             LOG.debug(u'experiment set to: %s', config[u'experiment'])
+        else:
+            LOG.info(u'attempting to use experiment from hostname!')
+            config[u'experiment'] = hostname_check[u'experiment']
+
         if options.project:
             config[u'project'] = options.project
             LOG.debug(u'project set to: %s', config[u'project'])
+        else:
+            LOG.info(u'attempting to use project from hostname!')
+            config[u'project'] = hostname_check[u'project']
+
         if options.control_server:
             config[u'control_server'] = options.control_server
             LOG.debug(u'control_server set to: %s', config[u'control_server'])
+        else:
+            LOG.info(u'using "control" as default for control server')
+            config[u'control_server'] = u'control'
+
         if options.click_server:
             config[u'click_server'] = options.click_server
             LOG.debug(u'click_server set to: %s', config[u'click_server'])
+        else:
+            LOG.info(u'using "vrouter" as default for click server')
+            config[u'click_server'] = u'vrouter'
+
 
         LOG.debug(u'config with cmd line options: %s', config)
 
-        # main execution: create the aal file, and run_magi with the click settings
+        # Main execution - we've gotten all the inputs from user, so now lets make changes to click
         aal_file = create_template_aal(config, residual=True)
         # if this script is run from the control_server, no need to scp it over
-        if script_run_from != config[u'control_server']:
-            _ = scp_file_to_control(
+        # also may seem a bit awkward setting control server above, but it might work in odd case
+        if hostname_check[u'host'] != config[u'control_server']:
+            scp_worked = scp_file_to_control(
                 aal_file, config[u'experiment'], config[u'project'], config[u'control_server']
             )
+            if not scp_worked:
+                print_condition(u'unable to scp generated aal file to control server.', failed=True)
+                exit(4)
+        # attempt to run our real aal on control server with magi
         success, out = run_magi(
             aal_file, config[u'experiment'], config[u'project'], config[u'control_server']
         )
+        # check if it worked or not
         if not success:
-            print u'some failure occured!\n %s', out
+            print_condition(u'some failure occured!\n {}'.format(out), failed=True)
         else:
             worked, click_logs = check_magi_logs(u'200. OK', config[u'experiment'],
                                                  config[u'project'], config[u'click_server'])
             if not worked:
-                print colored(u'unable to confirm click update was written!', u'red')
+                print_condition(u'unable to confirm click update was written!', failed=True)
             else:
-                print colored(u'confirmed changes send to click:\n', u'green')+click_logs[:-3]
+                print_condition(u'confirmed changes send to click:\n {}'.format(click_logs[:-3]))
+    # not being run on deterlab, so lets not handle this case (because ssh auth is a pain)
     else:
-        print colored(u'unable to run, must be on run on an isi.deterlab.net host', u'red')
-        print colored(u'if this host is on deterlab, make sure the FQDN is the hostname', u'red')
+        print_condition(
+            u'unable to run, must be on run on an isi.deterlab.net host'
+            u'if this host is on deterlab, make sure the FQDN is the hostname',
+            failed=True
+        )
 
 
 if __name__ == u'__main__':
