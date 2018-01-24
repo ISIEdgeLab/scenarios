@@ -189,7 +189,7 @@ def check_magi_logs(keyword: str, experiment_id: str, project_id: str,
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
     # only way to check if we 'succeeded' or 'failed'
-    check_failure = stderr.split('\n')[-2]
+    check_failure = stdout.split('\n')[-2]
     # if we wanted to 'fail' we should see runtime exception, other wise we
     # we would like to see 'write response' although these are particular to what is calling them
     if 'Sending back a RunTimeException event.' in check_failure and want_fail:
