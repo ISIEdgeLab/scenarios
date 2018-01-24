@@ -40,31 +40,7 @@ except ImportError:
         exit(3)
     from termcolor import colored  # type: ignore
 
-
-LOG_CONFIG = {
-    'version': 1,
-    'formatters': {
-        'standard': {
-            'format': '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
-        },
-    },
-    'handlers': {
-        'default': {
-            'level': 'DEBUG',
-            'formatter': 'standard',
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'loggers': {
-        '': {
-            'handlers': ['default'],
-            'level': 'DEBUG',
-            'propagate': True
-        },
-    }
-}
-
-logging.config.dictConfig(LOG_CONFIG)
+logging.config.fileConfig(fname='logging.config', disable_existing_loggers=False)
 LOG = logging.getLogger(__name__)
 
 # these logs only exist when experiment swapped in, where magi running and mounted
