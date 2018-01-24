@@ -21,7 +21,7 @@ except ImportError:
         print('Unable to install typing package locally, see error below:\n')
         print(GSTDERR)
         exit(3)
-    from typing import Dict, List, Tuple
+    from typing import Any, Dict, List, Tuple
 try:
     from termcolor import colored
 except ImportError:
@@ -431,10 +431,10 @@ def get_inputs_from_user(options: argparse.Namespace = None) -> Dict:
     return inputs
 
 
-def verified_host() -> Dict:
+def verified_host() -> Dict[str, Any]:
     rdict = {
         'run': False,
-    } # type: Dict
+        } # type: Dict[str, Any]
     remote_cmd = 'hostname'
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
@@ -449,7 +449,7 @@ def verified_host() -> Dict:
                 rdict['host'] = hostname[0]
                 rdict['experiment'] = hostname[1]
                 rdict['project'] = hostname[2]
-                return (True, rdict)
+                return rdict
             else:
                 LOG.error('invalid hostname: %s - %s', stdout, hostname)
         except IndexError:
