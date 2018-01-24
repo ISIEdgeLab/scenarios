@@ -189,13 +189,14 @@ def check_magi_logs(keyword: str, experiment_id: str, project_id: str,
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
     # only way to check if we 'succeeded' or 'failed'
-    check_failure = stderr.split('\n')[:-1]
+    check_failure = stderr.split('\n')[-2]
     # if we wanted to 'fail' we should see runtime exception, other wise we
     # we would like to see 'write response' although these are particular to what is calling them
-    if 'Sending back a RunTimeException event.' in check_failure and not want_fail:
+    if 'Sending back a RunTimeException event.' in check_failure and want_fail:
         pass
-    elif 'write response: 200: OK' in check_failure and want_fail:
-        pass
+    elif 'write response: 200: OK' in check_failure and not want_fail:
+        # 4 is magic number to include the line above with socket write.
+        return (True, u'\n'.join(stdout.split(u'\n')[-4:]))
     else:
         return (False, stderr)
 
@@ -235,7 +236,7 @@ def run_magi(aal_file: str, experiment_id: str, project_id: str,
     stdout, stderr = remote_proc.communicate()
     LOG.debug(stdout)
     LOG.debug(stderr)
-    if not stderr:
+    if remote_proc.returncode == 0:
         return (True, stdout)
     return (False, stderr)
 
@@ -288,6 +289,7 @@ def print_click_internals(click_element: Union[None, str], experiment_id: str, p
     # now copy our bogus template over to the control server
     _ = scp_file_to_control(
         aal, experiment_id, project_id, control_server)
+
     # run magi using our bogus dict, hopefully we will get output that can be parsed
     success, out = run_magi(aal, experiment_id, project_id, server=control_server)
     if not success:
@@ -637,10 +639,12 @@ def main() -> None:
         if not success:
             print('some failure occured!\n %s', out)
         else:
-            print('click configured for {element} with ({key}, {value})'.format(
-                element=config['element'], key=config['key'], value=config['value']))
-            print('inputs accepted - does not guarentee configuration was applied - verify!')
-            print(colored('No errors encoutered!'), 'green')
+            worked, click_logs = check_magi_logs('200. OK', config['experiment'],
+                                                 config['project'], config['click_server'])
+            if not worked:
+                print(colored('unable to confirm click update was written!', 'red'))
+            else:
+                print(colored('confirmed changes send to click:\n', 'green')+click_logs[:-3])
     else:
         print(colored('unable to run, must be on run on an isi.deterlab.net host', 'red'))
         print(colored('if this host is on deterlab, make sure the FQDN is the hostname', 'red'))
