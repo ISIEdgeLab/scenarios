@@ -601,7 +601,7 @@ def main() -> None:
             LOG.debug('experiment set to: %s', config['experiment'])
         else:
             LOG.info('attempting to use experiment from hostname!')
-            if config.get('experiment', None):
+            if hostname_check.get('experiment', None):
                 config['experiment'] = hostname_check['experiment']
 
         if options.project:
@@ -609,7 +609,7 @@ def main() -> None:
             LOG.debug('project set to: %s', config['project'])
         else:
             LOG.info('attempting to use project from hostname!')
-            if config.get('project', None):
+            if hostname_check.get('project', None):
                 config['project'] = hostname_check['project']
 
         if options.control_server:
