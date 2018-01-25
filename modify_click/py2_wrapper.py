@@ -634,7 +634,7 @@ def main():
         aal_file = create_template_aal(config, residual=True)
         # if this script is run from the control_server, no need to scp it over
         # also may seem a bit awkward setting control server above, but it might work in odd case
-        if hostname_check[u'host'] != config[u'control_server']:
+        if hostname_check.get(u'host', None) != config[u'control_server']:
             scp_worked = scp_file_to_control(
                 aal_file, config[u'experiment'], config[u'project'], config[u'control_server']
             )
