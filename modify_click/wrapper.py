@@ -601,14 +601,16 @@ def main() -> None:
             LOG.debug('experiment set to: %s', config['experiment'])
         else:
             LOG.info('attempting to use experiment from hostname!')
-            config['experiment'] = hostname_check['experiment']
+            if config.get('experiment', None):
+                config['experiment'] = hostname_check['experiment']
 
         if options.project:
             config['project'] = options.project
             LOG.debug('project set to: %s', config['project'])
         else:
             LOG.info('attempting to use project from hostname!')
-            config['project'] = hostname_check['project']
+            if config.get('project', None):
+                config['project'] = hostname_check['project']
 
         if options.control_server:
             config['control_server'] = options.control_server

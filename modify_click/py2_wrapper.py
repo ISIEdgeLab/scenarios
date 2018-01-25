@@ -602,14 +602,16 @@ def main():
             LOG.debug(u'experiment set to: %s', config[u'experiment'])
         else:
             LOG.info(u'attempting to use experiment from hostname!')
-            config[u'experiment'] = hostname_check[u'experiment']
+            if config.get(u'experiment', None):
+                config[u'experiment'] = hostname_check[u'experiment']
 
         if options.project:
             config[u'project'] = options.project
             LOG.debug(u'project set to: %s', config[u'project'])
         else:
             LOG.info(u'attempting to use project from hostname!')
-            config[u'project'] = hostname_check[u'project']
+            if config.get(u'project', None):
+                config[u'project'] = hostname_check[u'project']
 
         if options.control_server:
             config[u'control_server'] = options.control_server
