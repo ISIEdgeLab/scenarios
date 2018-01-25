@@ -48,9 +48,9 @@ MAGI_LOG_LOCATION = '/var/log/magi/logs/daemon.log'
 
 def print_condition(colored_output: str, failed: bool = False) -> None:
     if failed:
-        sys.stderr.write(colored('%s' % colored_output, 'red'))
+        sys.stderr.write(colored('%s\n' % colored_output, 'red'))
     else:
-        sys.stdout.write(colored('%s' % colored_output, 'green'))
+        sys.stdout.write(colored('%s\n' % colored_output, 'green'))
 
 def print_notice() -> None:
     # ignore for conversion to py2
@@ -446,9 +446,12 @@ def verified_host() -> Dict[str, Any]:
             hostname = stdout.split('.')
             if '.'.join(hostname[-3:]) == 'isi.deterlab.net':
                 rdict['run'] = True
-                rdict['host'] = hostname[0]
-                rdict['experiment'] = hostname[1]
-                rdict['project'] = hostname[2]
+                # huge assumption! that hostname now maps to Z.exp.proj.X.Y.W
+                if len(hostname) == 6:
+                    rdict['host'] = hostname[0]
+                    rdict['experiment'] = hostname[1]
+                    rdict['project'] = hostname[2]
+                LOG.debug('host info: %s', str(rdict))
                 return rdict
             else:
                 LOG.error('invalid hostname: %s - %s', stdout, hostname)
