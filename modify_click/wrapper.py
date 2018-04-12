@@ -226,9 +226,15 @@ def print_linux_groups(project_id: str = None) -> None:
     stdout, stderr = remote_proc.communicate()
     if not stderr:
         if not project_id:
-            print('\n'.join([str(x).split('/')[-1] for x in stdout.decode("utf-8").split('\n') if x]))
+            print(
+                '\n'.join([x.split('/')[-1] for x in stdout.decode("utf-8").split('\n') if x])
+            )
         else:
-            print('\n'.join(sorted([str(x).split('/')[-1] for x in stdout.decode("utf-8").split('\n') if x])))
+            print(
+                '\n'.join(
+                    sorted([x.split('/')[-1] for x in stdout.decode("utf-8").split('\n') if x])
+                )
+            )
     else:
         print_condition('Unable to find any valid projects -- ', failed=True)
         LOG.error(stderr)
