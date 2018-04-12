@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/ISIEdgeLab/scenarios.svg?branch=master)](https://travis-ci.org/ISIEdgeLab/scenarios)
+
 ## Scenarios
 
 The purpose of scenarios is to reduce the effort required to configure EdgeLab
