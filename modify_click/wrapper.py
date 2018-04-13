@@ -166,16 +166,16 @@ def check_magi_logs(keyword: str, experiment_id: str, project_id: str,
     remote_proc = Popen(remote_cmd, stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = remote_proc.communicate()
     # only way to check if we 'succeeded' or 'failed'
-    check_failure = stdout.split('\n')[-2]
+    check_failure = stdout.decode('utf-8').split('\n')[-2]
     # if we wanted to 'fail' we should see runtime exception, other wise we
     # we would like to see 'write response' although these are particular to what is calling them
     if 'Sending back a RunTimeException event.' in check_failure and want_fail:
         pass
     elif 'write response: 200: OK' in check_failure and not want_fail:
         # 4 is magic number to include the line above with socket write.
-        return (True, u'\n'.join(stdout.split(u'\n')[-4:]))
+        return (True, u'\n'.join(stdout.decode('utf-8').split(u'\n')[-4:]))
     else:
-        return (False, stderr)
+        return (False, stderr.decode('utf-8'))
     # in case of error, lets spew additional lines to help programmer/debugger find issue
     last_twenty_lines = []
     count = 0

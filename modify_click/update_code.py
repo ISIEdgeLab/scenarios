@@ -8,6 +8,7 @@ def installed() -> bool:
     proc = Popen('3to2 -h', stdout=PIPE, stderr=PIPE, shell=True)
     _, stderr = proc.communicate()
     if stderr:
+        print(stderr.decode('utf-8'))
         return False
     return True
 
@@ -15,8 +16,8 @@ def installed() -> bool:
 def install_3to2():
     proc = Popen('pip3 install 3to2 --user', stdout=PIPE, stderr=PIPE, shell=True)
     stdout, stderr = proc.communicate()
-    if stdout:
-        print(stderr)
+    if stderr:
+        print(stderr.decode('utf-8'))
         return False
     return True
 
@@ -26,7 +27,7 @@ def update_code():
     proc = Popen('3to2 -w wrapper.py', stdout=PIPE, stderr=PIPE, shell=True)
     stdout, stderr = proc.communicate()
     if stdout:
-        print(stderr)
+        print(stderr.decode('utf-8'))
         return False
     return True
 
